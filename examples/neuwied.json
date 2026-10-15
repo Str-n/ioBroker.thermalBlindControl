@@ -1,0 +1,76 @@
+{
+  "enabled": false,
+  "dryRun": true,
+  "thermalMode": "shadow",
+  "latitude":  50.46,
+  "longitude": 7.47,
+  "timezone": "Europe/Berlin",
+  "minimumSolarPowerPerWindowW": 20,
+  "minMovementIntervalMinutes": 28,
+  "rooms": [
+    {
+      "id": "wohnzimmer",
+      "name": "Wohnzimmer",
+      "temperatureSensorId": "alias.0.wohnzimmer.temperature",
+      "targetTemperatureC": 21,
+      "heatLossWK": 80,
+      "floorAreaM2": 25,
+      "construction": "medium",
+      "heating": {
+        "type": "radiator",
+        "setpointId": "alias.0.wohnzimmer.heatingSetpoint",
+        "demandId": "alias.0.wohnzimmer.heatingDemand",
+        "valvePositionId": "alias.0.wohnzimmer.valve",
+        "nominalPowerW": 1000
+      }
+    }
+  ],
+  "windows": [
+    {
+      "id": "wohnzimmer_ost",
+      "name": "Wohnzimmer Ost",
+      "roomId": "wohnzimmer",
+      "azimuthDeg": 70,
+      "glassAreaM2": 3.5,
+      "gValue": 0.5,
+      "enabled": true,
+      "autoMorningOpen": false,
+      "positionStateId": "alias.0.rollladen.ost.actual",
+      "positionCommandId": "alias.0.rollladen.ost.target",
+      "deviceOpenValue": 100,
+      "deviceClosedValue": 0
+    },
+    {
+      "id": "wohnzimmer_sued",
+      "name": "Wohnzimmer Süd",
+      "roomId": "wohnzimmer",
+      "azimuthDeg": 160,
+      "glassAreaM2": 5,
+      "gValue": 0.5,
+      "enabled": true,
+      "autoMorningOpen": true,
+      "positionStateId": "alias.0.rollladen.sued.actual",
+      "positionCommandId": "alias.0.rollladen.sued.target",
+      "deviceOpenValue": 100,
+      "deviceClosedValue": 0
+    },
+    {
+      "id": "wohnzimmer_west",
+      "name": "Wohnzimmer West",
+      "roomId": "wohnzimmer",
+      "azimuthDeg": 250,
+      "glassAreaM2": 4,
+      "gValue": 0.5,
+      "enabled": true,
+      "autoMorningOpen": true,
+      "positionStateId": "alias.0.rollladen.west.actual",
+      "positionCommandId": "alias.0.rollladen.west.target",
+      "deviceOpenValue": 100,
+      "deviceClosedValue": 0
+    }
+  ],
+  "centralHeating": {
+    "flowTemperatureId": "alias.0.heating.flow",
+    "returnTemperatureId": "alias.0.heating.return"
+  }
+}

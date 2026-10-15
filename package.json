@@ -1,0 +1,20 @@
+{
+  "name": "iobroker.thermalblindcontrol",
+  "version": "0.1.0",
+  "description": "Forecast-based room thermal modelling and blind control",
+  "main": "build/main.js",
+  "license": "MIT",
+  "author": "Nils",
+  "keywords": ["ioBroker", "blinds", "thermal", "Open-Meteo"],
+  "engines": { "node": ">=20" },
+  "files": ["build/", "admin/", "scripts/", "examples/", "io-package.json", "README.md", "LICENSE", "thermische_rollladensteuerung_iobroker_plan.md"],
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node test/engine.test.cjs && node test/thermal-weather.test.cjs && node test/solar-allocation.test.cjs && node test/adapter.test.cjs",
+    "simulator": "node scripts/simulator-server.cjs",
+    "admin:generate": "npm run build && node scripts/generate-admin.cjs",
+    "prepack": "npm run build"
+  },
+  "dependencies": { "@iobroker/adapter-core": "^3.3.2", "suncalc": "^1.9.0" },
+  "devDependencies": { "@types/node": "^22.0.0", "@types/suncalc": "^1.9.2", "typescript": "^5.9.3" }
+}

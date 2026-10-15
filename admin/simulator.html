@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Thermal Blind Control · Simulator</title><link rel="stylesheet" href="/simulator.css"><script src="/simulator.js" defer></script></head>
+<body>
+<main>
+  <header><div class="brand"><span class="brand-mark">☀</span><div><p class="eyebrow">ioBroker · virtual house</p><h1>Thermal blind control</h1></div></div><span class="badge">SIMULATOR <span>· no device connection</span></span></header>
+  <section class="timeline card" aria-label="Simulation clock">
+    <button id="play" class="primary">▶ Play</button><button id="step">+15 min</button><div class="clock"><strong id="clock">12:00</strong><small id="dateLabel">Europe/Berlin</small></div>
+    <input type="range" id="minutes" min="0" max="1439" value="720" aria-label="Time of day"><input type="date" id="date" value="2026-07-15" aria-label="Date"><button id="reset">Reset run</button>
+  </section>
+  <p id="error" role="alert" hidden></p>
+  <div class="dashboard">
+    <aside class="card controls">
+      <h2>Test conditions</h2><p class="muted">Explore heat gains, comfort and operating rules.</p>
+      <div class="scenarios"><button class="selected" data-scenario="balanced">Balanced gains</button><button data-scenario="winter">Winter sun</button><button data-scenario="summer">Summer</button><button data-scenario="heatwave">Heatwave</button><button data-scenario="cloudy">Cloudy autumn</button></div>
+      <fieldset><legend>Weather & room</legend>
+        <label>Outside mean <output id="outsideMeanValue">14 °C</output><input id="outsideMean" type="range" min="-10" max="40" step="1" value="14"></label>
+        <label>Cloud cover <output id="cloudsValue">15 %</output><input id="clouds" type="range" min="0" max="100" value="15"></label>
+        <label>Measured room temperature <output id="roomTemperatureValue">20 °C</output><input id="roomTemperature" type="range" min="14" max="35" step="0.1" value="20"></label>
+        <div class="pair"><label>Heat loss (W/K)<input id="heatLoss" type="number" min="1" max="2000" value="80"></label><label>Floor area (m²)<input id="floorArea" type="number" min="1" max="1000" value="25"></label></div>
+        <label>Heating model<select id="heatingType"><option value="none">None</option><option value="radiator">Radiator</option><option value="underfloor">Underfloor · residual heat</option></select></label>
+        <label class="toggle"><input id="heatingDemand" type="checkbox"> Heating demand on</label>
+      </fieldset>
+      <fieldset><legend>Daylight & movement</legend>
+        <label>Minimum daylight per window (W)<input id="minimumSolarPowerPerWindowW" type="number" min="0" max="10000" step="any" value="0"></label>
+        <p class="muted">Reserve this much unblocked solar power per window, even when the heat budget is exceeded. Limited by available sunlight; 0 disables the minimum.</p>
+        <label>Minimum time between automatic moves (min)<input id="minMovementIntervalMinutes" type="number" min="15" max="1440" step="1" value="15"></label>
+        <p class="muted">Per blind. Set 60 for at most one automatic position change per hour. Each thermal position anticipates the full upcoming interval of sunlight and daylight needs.</p>
+        <label>Minimum automatic position change (percentage points)<input id="minPositionChange" type="number" min="1" max="100" step="any" value="10"></label>
+        <p class="muted">Ignore smaller automatic changes in either direction. With 10, 89 → 93 is ignored, while 70 → 93 and changes of exactly 10 are allowed. Also applies to daylight corrections and scheduled moves.</p>
+      </fieldset>
+      <fieldset><legend>Operating controls</legend>
+        <label class="toggle"><input id="enabled" type="checkbox" checked> Automation enabled</label>
+        <label class="toggle"><input id="disabledToday" type="checkbox"> Disabled today</label>
+        <label class="toggle"><input id="vacationMode" type="checkbox"> Vacation schedule</label>
+        <label class="toggle"><input id="dryRun" type="checkbox"> Dry run (diagnostics only)</label>
+        <label>Thermal mode<select id="thermalMode"><option value="active">Active</option><option value="shadow">Shadow</option><option value="off">Off</option></select></label>
+        <label class="toggle"><input id="forecastFailure" type="checkbox"> Simulate forecast outage</label>
+        <label class="toggle"><input id="sensorFailure" type="checkbox"> Simulate room sensor failure</label>
+      </fieldset>
+      <details><summary>Load adapter configuration</summary><p class="muted">Paste a native configuration to test your rooms, windows and settings with virtual sensors. No configured state ID is contacted.</p><textarea id="configuration" spellcheck="false" aria-label="Adapter configuration JSON"></textarea><button id="applyConfig">Apply configuration</button><button id="demoConfig">Restore demo</button></details>
+      <p class="muted footnote">Weather and shading are synthetic approximations. The decision engine is shared with the adapter. Forward steps evolve the room; scrubbing backward or more than two hours resets the run.</p>
+    </aside>
+    <div class="content">
+      <div class="room-heading"><h2 id="roomTitle">Living room</h2><select id="roomSelect" aria-label="Room"></select><span id="runStatus" class="status" aria-live="polite">Calculating…</span></div>
+      <section class="metrics" aria-label="Room diagnostics">
+        <article class="card metric"><p>Climate budget · 24h</p><strong id="budget">—</strong><small id="climate">Cooling potential at target temperature</small></article>
+        <article class="card metric"><p>Adaptive comfort limit</p><strong id="limit">—</strong><small id="capacity">Based on the room heat balance</small></article>
+        <article class="card metric"><p>Predicted peak</p><strong id="peak">—</strong><small id="openPeak">With selected shading</small></article>
+        <article class="card metric"><p>Admitted solar heat</p><strong id="solar">—</strong><small id="potential">Over the next 24 hours</small></article>
+      </section>
+      <section class="card scene-card"><div class="section-head"><div><h2>The virtual room</h2><p id="sceneNote">100 = fully open · 0 = fully closed</p></div><span id="sunPosition"></span></div>
+        <svg id="scene" viewBox="0 0 720 350" role="img" aria-label="Room with window positions and sun direction"></svg>
+        <div class="scene-footer"><span id="currentTemp"></span><span id="outsideTemp"></span><span id="schedule"></span></div>
+      </section>
+      <section class="card forecast-card"><div class="section-head"><div><h2>Next 24 hours</h2><p>Temperature forecast begins at the current measured room temperature.</p></div><button id="export">Export run JSON</button></div>
+        <div id="chartLegend" class="legend"><span class="planned">Planned room</span><span class="open">All blinds open</span><span class="outside">Outside</span><span class="limit">Comfort limit</span></div>
+        <svg id="chart" viewBox="0 0 900 260" role="img" aria-label="24 hour temperature forecast"></svg>
+        <p id="modelNote" class="model-note"></p>
+      </section>
+      <section class="card forecast-card"><div class="section-head"><div><h2>Solar energy distribution</h2><p>Partial shading limits peak sunlight so the available heat budget lasts across the forecast.</p></div><span id="solarTarget">—</span></div>
+        <div class="legend"><span class="planned">Admitted solar power</span><span class="open">Available with open blinds</span><span class="limit">Room power target</span></div>
+        <svg id="solarChart" viewBox="0 0 900 220" role="img" aria-label="24 hour available and admitted solar power"></svg>
+        <p id="solarBudgetNote" class="model-note"></p>
+      </section>
+      <section class="card window-card"><div class="section-head"><div><h2>Window controls</h2><p>Changing a position is a manual action and starts a 60-minute hold.</p></div></div><div id="windows" class="window-grid"></div></section>
+      <section class="card log-card"><div class="section-head"><h2>Movement log</h2><small>Virtual commands only</small></div><div id="log" role="log"><p class="muted">No automatic movements yet.</p></div></section>
+    </div>
+  </div>
+  <footer>Thermal Blind Control · Version 0.1 · Heuristic room and heating model · All positions are percent open</footer>
+</main>
+</body></html>

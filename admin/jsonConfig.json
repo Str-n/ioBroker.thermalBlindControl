@@ -1,0 +1,634 @@
+{
+  "type": "tabs",
+  "i18n": false,
+  "items": {
+    "_General": {
+      "type": "panel",
+      "label": "General",
+      "items": {
+        "_help": {
+          "type": "staticText",
+          "text": "Runtime switches under global.* and windows.* persist across restarts. Initial switches below are used only when their states are created. Start with dry run and shadow mode; active thermal control additionally requires global.dryRun=false and global.enabled=true. Only blind command IDs are written.",
+          "sm": 12
+        },
+        "enabled": {
+          "type": "checkbox",
+          "label": "Initially enabled",
+          "default": false,
+          "xs": 12,
+          "sm": 6
+        },
+        "dryRun": {
+          "type": "checkbox",
+          "label": "Dry run: never send motor commands",
+          "default": true,
+          "xs": 12,
+          "sm": 6
+        },
+        "thermalMode": {
+          "type": "select",
+          "label": "Thermal control mode",
+          "default": "shadow",
+          "xs": 12,
+          "sm": 6,
+          "options": [
+            {
+              "label": "off",
+              "value": "off"
+            },
+            {
+              "label": "shadow",
+              "value": "shadow"
+            },
+            {
+              "label": "active",
+              "value": "active"
+            }
+          ]
+        },
+        "disabledToday": {
+          "type": "checkbox",
+          "label": "Initially disabled today",
+          "default": false,
+          "xs": 12,
+          "sm": 6
+        },
+        "vacationMode": {
+          "type": "checkbox",
+          "label": "Initially in vacation mode",
+          "default": false,
+          "xs": 12,
+          "sm": 6
+        },
+        "latitude": {
+          "type": "number",
+          "label": "Latitude",
+          "default": 50.47,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "longitude": {
+          "type": "number",
+          "label": "Longitude",
+          "default": 7.47,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "timezone": {
+          "type": "text",
+          "label": "Building timezone (IANA)",
+          "default": "Europe/Berlin",
+          "xs": 12,
+          "sm": 6
+        },
+        "startupDelaySeconds": {
+          "type": "number",
+          "label": "Startup Delay Seconds",
+          "default": 30,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "optimizationIntervalMinutes": {
+          "type": "number",
+          "label": "Optimization Interval Minutes",
+          "default": 15,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "minimumSolarPowerPerWindowW": {
+          "type": "number",
+          "label": "Minimum daylight per window (W)",
+          "default": 0,
+          "xs": 12,
+          "sm": 6,
+          "step": "any",
+          "min": 0,
+          "max": 10000,
+          "help": "Reserve this much estimated unblocked solar power per window, even when the heat budget is exceeded. Limited by available sunlight. Zero disables the daylight minimum."
+        },
+        "minMovementIntervalMinutes": {
+          "type": "number",
+          "label": "Minimum time between automatic moves per blind (minutes)",
+          "default": 15,
+          "xs": 12,
+          "sm": 6,
+          "step": "any",
+          "min": 15,
+          "max": 1440,
+          "help": "Applies to every automatic position change per blind, including morning and vacation schedules. 60 means at most one automatic move per hour. Thermal positions anticipate the full upcoming interval, including changes in solar exposure and daylight. The last-command timestamp survives restarts."
+        },
+        "minPositionChange": {
+          "type": "number",
+          "label": "Minimum automatic position change (percentage points)",
+          "default": 10,
+          "xs": 12,
+          "sm": 6,
+          "step": "any",
+          "min": 1,
+          "max": 100,
+          "help": "Ignore automatic changes smaller than this absolute position difference. Default: 10 percentage points. With 10, 89 to 93 is ignored; 70 to 93 and a change of exactly 10 are allowed. Applies in both directions, including daylight corrections and scheduled moves. Manual controls remain available."
+        }
+      }
+    },
+    "_Rooms": {
+      "type": "panel",
+      "label": "Rooms & heating",
+      "items": {
+        "rooms": {
+          "type": "accordion",
+          "titleAttr": "name",
+          "noDelete": false,
+          "noAdd": false,
+          "sm": 12,
+          "items": [
+            {
+              "attr": "id",
+              "type": "text",
+              "label": "Stable ID (letters, numbers, _ or -)",
+              "default": "",
+              "xs": 12,
+              "sm": 6
+            },
+            {
+              "attr": "name",
+              "type": "text",
+              "label": "Display name",
+              "default": "",
+              "xs": 12,
+              "sm": 6
+            },
+            {
+              "attr": "temperatureSensorId",
+              "type": "objectId",
+              "label": "Measured room temperature state (°C)",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "targetTemperatureC",
+              "type": "number",
+              "label": "Target temperature (°C)",
+              "default": 21,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "heatLossWK",
+              "type": "number",
+              "label": "Heat loss coefficient (W/K)",
+              "default": 80,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "floorAreaM2",
+              "type": "number",
+              "label": "Floor area (m²)",
+              "default": 25,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "construction",
+              "type": "select",
+              "label": "Effective construction mass",
+              "default": "medium",
+              "xs": 12,
+              "sm": 6,
+              "options": [
+                {
+                  "label": "veryLight",
+                  "value": "veryLight"
+                },
+                {
+                  "label": "light",
+                  "value": "light"
+                },
+                {
+                  "label": "medium",
+                  "value": "medium"
+                },
+                {
+                  "label": "heavy",
+                  "value": "heavy"
+                },
+                {
+                  "label": "veryHeavy",
+                  "value": "veryHeavy"
+                }
+              ]
+            },
+            {
+              "attr": "internalGainsW",
+              "type": "number",
+              "label": "Constant internal gains (W)",
+              "default": 0,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "heating.type",
+              "type": "select",
+              "label": "Heating system",
+              "default": "none",
+              "xs": 12,
+              "sm": 6,
+              "options": [
+                {
+                  "label": "none",
+                  "value": "none"
+                },
+                {
+                  "label": "radiator",
+                  "value": "radiator"
+                },
+                {
+                  "label": "underfloor",
+                  "value": "underfloor"
+                }
+              ]
+            },
+            {
+              "attr": "heating.setpointId",
+              "type": "objectId",
+              "label": "Read-only heating setpoint state",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "heating.demandId",
+              "type": "objectId",
+              "label": "Read-only heating demand state",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "heating.valvePositionId",
+              "type": "objectId",
+              "label": "Read-only valve position state (%)",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "heating.nominalPowerW",
+              "type": "number",
+              "label": "Heuristic nominal heating power (W)",
+              "default": 1000,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "heating.residualTimeHours",
+              "type": "number",
+              "label": "Underfloor residual time constant (hours)",
+              "default": 3,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            }
+          ]
+        },
+        "centralHeating.flowTemperatureId": {
+          "type": "objectId",
+          "label": "Read-only central supply temperature (°C)",
+          "default": "",
+          "xs": 12,
+          "sm": 12
+        },
+        "centralHeating.returnTemperatureId": {
+          "type": "objectId",
+          "label": "Read-only central return temperature (°C)",
+          "default": "",
+          "xs": 12,
+          "sm": 12
+        }
+      }
+    },
+    "_Windows": {
+      "type": "panel",
+      "label": "Windows",
+      "items": {
+        "_help": {
+          "type": "staticText",
+          "text": "All positions and diagnostics: 100 = fully open, 0 = fully closed. Configure raw device endpoints explicitly; the adapter converts them to this convention. Shared actual/target IDs are supported for one window. Use distinct actuator IDs for different windows.",
+          "sm": 12
+        },
+        "windows": {
+          "type": "accordion",
+          "titleAttr": "name",
+          "noDelete": false,
+          "noAdd": false,
+          "sm": 12,
+          "items": [
+            {
+              "attr": "id",
+              "type": "text",
+              "label": "Stable ID (letters, numbers, _ or -)",
+              "default": "",
+              "xs": 12,
+              "sm": 6
+            },
+            {
+              "attr": "name",
+              "type": "text",
+              "label": "Display name",
+              "default": "",
+              "xs": 12,
+              "sm": 6
+            },
+            {
+              "attr": "roomId",
+              "type": "text",
+              "label": "Room ID",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "azimuthDeg",
+              "type": "number",
+              "label": "Compass azimuth (north 0°, east 90°)",
+              "default": 180,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "tiltDeg",
+              "type": "number",
+              "label": "Window tilt (vertical = 90°)",
+              "default": 90,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "glassAreaM2",
+              "type": "number",
+              "label": "Glazing area (m²)",
+              "default": 3,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "gValue",
+              "type": "number",
+              "label": "Glazing g-value (0–1)",
+              "default": 0.5,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "closedTransmission",
+              "type": "number",
+              "label": "Residual heat transmission when closed (0–1)",
+              "default": 0.05,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "enabled",
+              "type": "checkbox",
+              "label": "Initially enabled",
+              "default": true,
+              "xs": 12,
+              "sm": 6
+            },
+            {
+              "attr": "autoMorningOpen",
+              "type": "checkbox",
+              "label": "Initially allow morning opening",
+              "default": true,
+              "xs": 12,
+              "sm": 6
+            },
+            {
+              "attr": "positionStateId",
+              "type": "objectId",
+              "label": "Actual motor position state",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "positionCommandId",
+              "type": "objectId",
+              "label": "Motor target state",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "movementStateId",
+              "type": "objectId",
+              "label": "Optional moving indicator state (boolean / 0–1)",
+              "default": "",
+              "xs": 12,
+              "sm": 12
+            },
+            {
+              "attr": "deviceOpenValue",
+              "type": "number",
+              "label": "Device value when fully OPEN",
+              "default": 100,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "deviceClosedValue",
+              "type": "number",
+              "label": "Device value when fully CLOSED",
+              "default": 0,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            },
+            {
+              "attr": "travelSeconds",
+              "type": "number",
+              "label": "Motor feedback recognition timeout (seconds)",
+              "default": 120,
+              "xs": 12,
+              "sm": 6,
+              "step": "any"
+            }
+          ]
+        }
+      }
+    },
+    "_Schedule": {
+      "type": "panel",
+      "label": "Schedules & manual control",
+      "items": {
+        "morningEarliest": {
+          "type": "text",
+          "label": "Morning Earliest",
+          "default": "07:00",
+          "xs": 12,
+          "sm": 6
+        },
+        "morningLatest": {
+          "type": "text",
+          "label": "Morning Latest",
+          "default": "10:00",
+          "xs": 12,
+          "sm": 6
+        },
+        "morningOffsetMinutes": {
+          "type": "number",
+          "label": "Morning Offset Minutes",
+          "default": 0,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "eveningEarliest": {
+          "type": "text",
+          "label": "Evening Earliest",
+          "default": "17:00",
+          "xs": 12,
+          "sm": 6
+        },
+        "eveningLatest": {
+          "type": "text",
+          "label": "Evening Latest",
+          "default": "22:00",
+          "xs": 12,
+          "sm": 6
+        },
+        "eveningOffsetMinutes": {
+          "type": "number",
+          "label": "Evening Offset Minutes",
+          "default": 0,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "scheduleCatchUpMinutes": {
+          "type": "number",
+          "label": "Schedule Catch Up Minutes",
+          "default": 60,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "manualOverrideMinutes": {
+          "type": "number",
+          "label": "Manual Override Minutes",
+          "default": 60,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "firstOpenPercent": {
+          "type": "number",
+          "label": "First Open Percent",
+          "default": 90,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "positionTolerance": {
+          "type": "number",
+          "label": "Position Tolerance",
+          "default": 3,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        }
+      }
+    },
+    "_Model": {
+      "type": "panel",
+      "label": "Forecast & thermal model",
+      "items": {
+        "_help": {
+          "type": "staticText",
+          "text": "Open-Meteo GTI is fetched per facade. Forecast / sensor / position ages are minutes. Heating inputs are uncertain indicators, never measured room watts. The initial linear shading curve and thermal parameters need calibration. Check Open-Meteo usage terms for your deployment.",
+          "sm": 12
+        },
+        "forecastRefreshMinutes": {
+          "type": "number",
+          "label": "Forecast Refresh Minutes",
+          "default": 60,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "forecastMaxAgeMinutes": {
+          "type": "number",
+          "label": "Forecast Max Age Minutes",
+          "default": 180,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "sensorMaxAgeMinutes": {
+          "type": "number",
+          "label": "Sensor Max Age Minutes",
+          "default": 180,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "positionMaxAgeMinutes": {
+          "type": "number",
+          "label": "Position Max Age Minutes",
+          "default": 10080,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "toleranceMaxC": {
+          "type": "number",
+          "label": "Tolerance Max C",
+          "default": 4,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "toleranceStartK": {
+          "type": "number",
+          "label": "Tolerance Start K",
+          "default": 1,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "toleranceFullK": {
+          "type": "number",
+          "label": "Tolerance Full K",
+          "default": 8,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        },
+        "limitSmoothingMinutes": {
+          "type": "number",
+          "label": "Limit Smoothing Minutes",
+          "default": 60,
+          "xs": 12,
+          "sm": 6,
+          "step": "any"
+        }
+      }
+    }
+  }
+}

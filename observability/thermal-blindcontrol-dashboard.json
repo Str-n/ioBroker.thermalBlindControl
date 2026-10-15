@@ -1,0 +1,4093 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Thermal blind controller: operational state, room heat models, solar budgets, blind positions and debugging. 100=open, 0=closed.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": 3119164958031872,
+  "links": [
+    {
+      "targetBlank": true,
+      "title": "ioBroker thermal blind objects",
+      "type": "link",
+      "url": "https://192.168.178.40:8081/#tab-objects/select/thermalblindcontrol.0"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "content": "**100% = fully open \u00b7 0% = fully closed** &nbsp; | &nbsp; [ioBroker objects](https://192.168.178.40:8081/#tab-objects/select/thermalblindcontrol.0)\n\nOverview gauges show all blinds. **Room** filters room models; **Blind** filters detailed blind charts. In **SHADOW / DRY_RUN**, planned positions can differ from actual positions. Energy and predicted peaks are **rolling 24-hour forecasts recorded at each evaluation**, not measured energy totals. New diagnostic history starts on 15 October 2026; existing sensor history remains available.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [],
+      "title": "Thermal blind control \u00b7 operating context",
+      "transparent": false,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "ACTIVE": {
+                  "color": "green",
+                  "text": "ACTIVE"
+                },
+                "DRY_RUN": {
+                  "color": "purple",
+                  "text": "DRY RUN"
+                },
+                "SHADOW": {
+                  "color": "blue",
+                  "text": "SHADOW"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 4
+      },
+      "id": 2,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Mode",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.operatingMode\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Operating mode",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "Invalid"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "Valid"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 4
+      },
+      "id": 3,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Forecast",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.forecastValid\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Forecast valid",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "Stopped"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "Running"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 4
+      },
+      "id": 4,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Adapter",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"system.adapter.thermalblindcontrol.0.alive\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Adapter alive",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 4
+      },
+      "id": 5,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Evaluation",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.lastEvaluation\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Last evaluation",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 4
+      },
+      "id": 6,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Forecast refresh",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.lastForecastUpdate\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Last forecast refresh",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "Unavailable"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "Connected"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 4
+      },
+      "id": 7,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Connection",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.info.connection\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Forecast connection",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "ACTIVE": {
+                  "color": "green",
+                  "text": "Active"
+                },
+                "DISABLED": {
+                  "color": "gray",
+                  "text": "Disabled"
+                },
+                "DISABLED_TODAY": {
+                  "color": "gray",
+                  "text": "Disabled today"
+                },
+                "DRY_RUN": {
+                  "color": "purple",
+                  "text": "Dry run"
+                },
+                "SHADOW": {
+                  "color": "blue",
+                  "text": "Shadow"
+                },
+                "VACATION": {
+                  "color": "orange",
+                  "text": "Vacation"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "Not recorded",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 8,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Operating mode",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.operatingMode\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Operating mode history",
+      "transparent": false,
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "gray",
+                  "text": "Off"
+                },
+                "1": {
+                  "color": "blue",
+                  "text": "On"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "Not recorded",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 9,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Automation enabled",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.enabled\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Dry run",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.dryRun\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Disabled today",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.disabledToday\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Vacation mode",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.vacationMode\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Global operating controls",
+      "transparent": false,
+      "type": "state-timeline"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 10,
+      "panels": [],
+      "title": "Blind status \u00b7 100% open / 0% closed",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "All 15 configured blinds. Plans are diagnostic targets, not proof that a motor command was sent.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-RdYlGr",
+            "seriesBy": "last"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 11,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 12,
+        "namePlacement": "left",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\..*\\.actualPosition$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "All blinds \u00b7 actual openness",
+      "transparent": false,
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "All 15 configured blinds. Plans are diagnostic targets, not proof that a motor command was sent.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-RdYlGr",
+            "seriesBy": "last"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 12,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 12,
+        "namePlacement": "left",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\..*\\.calculatedPosition$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "All blinds \u00b7 planned openness",
+      "transparent": false,
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "COMMAND_FAILED": {
+                  "color": "red",
+                  "text": "Command failed"
+                },
+                "DAYLIGHT_MINIMUM": {
+                  "color": "yellow",
+                  "text": "Daylight allowance"
+                },
+                "DISABLED_TODAY": {
+                  "color": "gray",
+                  "text": "Disabled today"
+                },
+                "DRY_RUN": {
+                  "color": "purple",
+                  "text": "Dry run"
+                },
+                "FORECAST_INVALID": {
+                  "color": "red",
+                  "text": "Invalid forecast"
+                },
+                "MANUAL_LOCK": {
+                  "color": "purple",
+                  "text": "Manual hold"
+                },
+                "MORNING_OPEN": {
+                  "color": "green",
+                  "text": "Morning opening"
+                },
+                "MOVEMENT_COOLDOWN": {
+                  "color": "blue",
+                  "text": "Movement interval"
+                },
+                "MOVING": {
+                  "color": "blue",
+                  "text": "Motor moving"
+                },
+                "NO_CHANGE": {
+                  "color": "gray",
+                  "text": "Below threshold / no change"
+                },
+                "NO_DIRECT_SUN": {
+                  "color": "green",
+                  "text": "No direct sun"
+                },
+                "OUTSIDE_CONTROL_HOURS": {
+                  "color": "gray",
+                  "text": "Outside control hours"
+                },
+                "POSITION_INVALID": {
+                  "color": "red",
+                  "text": "Invalid position"
+                },
+                "ROOM_INVALID": {
+                  "color": "red",
+                  "text": "Invalid room data"
+                },
+                "SHADOW_MODE": {
+                  "color": "blue",
+                  "text": "Shadow mode"
+                },
+                "SOLAR_GAIN": {
+                  "color": "green",
+                  "text": "Open for solar gain"
+                },
+                "SYSTEM_DISABLED": {
+                  "color": "gray",
+                  "text": "System disabled"
+                },
+                "THERMAL_PROTECTION": {
+                  "color": "orange",
+                  "text": "Thermal shading"
+                },
+                "VACATION_CLOSE": {
+                  "color": "orange",
+                  "text": "Vacation closing"
+                },
+                "VACATION_OPEN": {
+                  "color": "green",
+                  "text": "Vacation opening"
+                },
+                "VACATION_WAIT": {
+                  "color": "gray",
+                  "text": "Vacation schedule waiting"
+                },
+                "WAIT_FIRST_OPEN": {
+                  "color": "gray",
+                  "text": "Waiting for external opening"
+                },
+                "WAIT_MORNING": {
+                  "color": "gray",
+                  "text": "Waiting for morning"
+                },
+                "WINDOW_DISABLED": {
+                  "color": "gray",
+                  "text": "Blind disabled"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Current decision"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 13,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\..*\\.controlReason$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Current control decisions \u00b7 all blinds",
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "includeTimeField": false,
+            "mode": "seriesToRows",
+            "reducers": [
+              "lastNotNull"
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "Field": "Blind",
+              "Last *": "Current decision"
+            }
+          }
+        }
+      ],
+      "transparent": false,
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "Compare acknowledged position feedback with the controller plan. A difference can be expected during manual holds, cooldown, shadow mode, or disabled operation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*Plan$"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    4
+                  ],
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 14,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Actual",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.actualPosition$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Plan",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.calculatedPosition$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Actual versus planned openness \u00b7 ${blind:text}",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "Exact recorded control reason. Repeated unchanged reasons are periodically recorded to preserve continuity.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "COMMAND_FAILED": {
+                  "color": "red",
+                  "text": "Command failed"
+                },
+                "DAYLIGHT_MINIMUM": {
+                  "color": "yellow",
+                  "text": "Daylight allowance"
+                },
+                "DISABLED_TODAY": {
+                  "color": "gray",
+                  "text": "Disabled today"
+                },
+                "DRY_RUN": {
+                  "color": "purple",
+                  "text": "Dry run"
+                },
+                "FORECAST_INVALID": {
+                  "color": "red",
+                  "text": "Invalid forecast"
+                },
+                "MANUAL_LOCK": {
+                  "color": "purple",
+                  "text": "Manual hold"
+                },
+                "MORNING_OPEN": {
+                  "color": "green",
+                  "text": "Morning opening"
+                },
+                "MOVEMENT_COOLDOWN": {
+                  "color": "blue",
+                  "text": "Movement interval"
+                },
+                "MOVING": {
+                  "color": "blue",
+                  "text": "Motor moving"
+                },
+                "NO_CHANGE": {
+                  "color": "gray",
+                  "text": "Below threshold / no change"
+                },
+                "NO_DIRECT_SUN": {
+                  "color": "green",
+                  "text": "No direct sun"
+                },
+                "OUTSIDE_CONTROL_HOURS": {
+                  "color": "gray",
+                  "text": "Outside control hours"
+                },
+                "POSITION_INVALID": {
+                  "color": "red",
+                  "text": "Invalid position"
+                },
+                "ROOM_INVALID": {
+                  "color": "red",
+                  "text": "Invalid room data"
+                },
+                "SHADOW_MODE": {
+                  "color": "blue",
+                  "text": "Shadow mode"
+                },
+                "SOLAR_GAIN": {
+                  "color": "green",
+                  "text": "Open for solar gain"
+                },
+                "SYSTEM_DISABLED": {
+                  "color": "gray",
+                  "text": "System disabled"
+                },
+                "THERMAL_PROTECTION": {
+                  "color": "orange",
+                  "text": "Thermal shading"
+                },
+                "VACATION_CLOSE": {
+                  "color": "orange",
+                  "text": "Vacation closing"
+                },
+                "VACATION_OPEN": {
+                  "color": "green",
+                  "text": "Vacation opening"
+                },
+                "VACATION_WAIT": {
+                  "color": "gray",
+                  "text": "Vacation schedule waiting"
+                },
+                "WAIT_FIRST_OPEN": {
+                  "color": "gray",
+                  "text": "Waiting for external opening"
+                },
+                "WAIT_MORNING": {
+                  "color": "gray",
+                  "text": "Waiting for morning"
+                },
+                "WINDOW_DISABLED": {
+                  "color": "gray",
+                  "text": "Blind disabled"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "Not recorded",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 47
+      },
+      "id": 15,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.controlReason$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Why the controller moved or waited \u00b7 ${blind:text}",
+      "transparent": false,
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "suffix: W/m\u00b2"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 55
+      },
+      "id": 16,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.directIrradiance$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Direct sunlight on the facade \u00b7 ${blind:text}",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "dark-green",
+                  "text": "No"
+                },
+                "1": {
+                  "color": "orange",
+                  "text": "Yes"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "Not recorded",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 55
+      },
+      "id": 17,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Manual hold",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.manualOverrideActive$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Direct sun",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.directSun$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Manual holds and direct-sun eligibility \u00b7 ${blind:text}",
+      "transparent": false,
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "gray",
+                  "text": "No"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "Yes"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "Not recorded",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 62
+      },
+      "id": 18,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Enabled",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.enabled$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Participating today",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.participatingToday$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Morning opening",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.autoMorningOpen$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Automatic permissions \u00b7 ${blind:text}",
+      "transparent": false,
+      "type": "state-timeline"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "id": 19,
+      "panels": [],
+      "title": "Room model \u00b7 temperatures and the next 24 hours",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "The measured curve is real room temperature. Peak curves summarize the following 24 hours at each timestamp; they are not future observations.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*Comfort limit$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    6,
+                    4
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 69
+      },
+      "id": 20,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Measured",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.currentTemperature$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Comfort limit",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.adaptiveTempLimit$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Planned 24h peak",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.predictedMaxTemp$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 24h peak with all blinds open",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.openMaxTemp$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Measured temperature and forecast peaks \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "green",
+                  "text": "Within limits"
+                },
+                "1": {
+                  "color": "red",
+                  "text": "Limit exceeded"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 69
+      },
+      "id": 21,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Budget exceeded",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.solarBudgetExceeded$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Unavoidable overheating",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.unavoidableOverheating$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Budget / comfort diagnostics \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "Rolling 24-hour model estimates, in Wh/kWh. Do not sum these values over time as measured consumption.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watth"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 78
+      },
+      "id": 22,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Available solar budget",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.solarBudget24h$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Admitted solar forecast",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.solarAllowed24h$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Potential with open blinds",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.solarPotential24h$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Heating forecast",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.heatingEnergyPredicted24h$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Solar energy allowance and forecast \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "Positive: forecast heat loss can absorb solar gain. Negative: outside conditions add heat before solar gain.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watth"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 78
+      },
+      "id": 23,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Climate budget",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.climateBudget24h$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Climate cooling budget \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 86
+      },
+      "id": 24,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3 \u00b7 Solar power target",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.solarPowerTargetW$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "$3 \u00b7 Residual heating estimate",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.residualHeatingPower$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Room solar power target and residual heating \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "Equivalent target-minus-outdoor temperature difference for the 24-hour climate budget; a temperature difference, not an absolute outdoor temperature.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "suffix: K"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 86
+      },
+      "id": 25,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.climateIndex$/ WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Climate index \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "suffix: Wh/K"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 93
+      },
+      "id": 26,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.capacityWhK$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Effective heat capacity \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "suffix: h"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 93
+      },
+      "id": 27,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.timeConstantHours$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Room thermal time constant \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 93
+      },
+      "id": 28,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "$3",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.modelQuality$/ WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Model quality \u00b7 ${room:text}",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 97
+      },
+      "id": 29,
+      "panels": [],
+      "title": "Physical inputs \u00b7 existing sensor history and heating setpoints",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "Original configured sensors, including their existing InfluxDB aliases. Independent of the Room selector.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 98
+      },
+      "id": 30,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Ground floor living / dining / kitchen",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000C9A49A310B8.1.ACTUAL_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Ground floor guest room",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000C9F298AE177.1.ACTUAL_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Ground floor garden room",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000C9F298AE17D.1.ACTUAL_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor K1",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000A1BE996644B.1.ACTUAL_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor K2",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"Temperatur_Jonte\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "E",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor parents room",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.2.INT0000003.1.ACTUAL_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "F",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor bathroom",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"Temperatur_Bad_Gruppe\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "G",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Attic Gustav",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000A1BE9966454.1.ACTUAL_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "H",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Measured room sensors \u00b7 all rooms",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "Observed thermostat inputs. The thermal blind adapter does not command heating.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 98
+      },
+      "id": 31,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Ground floor living / dining / kitchen",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000C9A49A310B8.1.SET_POINT_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Ground floor guest room",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000C9F298AE177.1.SET_POINT_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Ground floor garden room",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000C9F298AE17D.1.SET_POINT_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor K1",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000A1BE996644B.1.SET_POINT_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "D",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor K2",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"Temperatur_Jonte_Soll\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "E",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor parents room",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.2.INT0000003.1.SET_POINT_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "F",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Upper floor bathroom",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"Temperatur_Bad_Soll\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "G",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Attic Gustav",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"hm-rpc.1.000A1BE9966454.1.SET_POINT_TEMPERATURE\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "H",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Observed heating setpoints \u00b7 all rooms",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 106
+      },
+      "id": 32,
+      "panels": [],
+      "title": "Adapter health and diagnostics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Event loop lag"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 107
+      },
+      "id": 33,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "CPU",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"system.adapter.thermalblindcontrol.0.cpu\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "Event loop lag",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"system.adapter.thermalblindcontrol.0.eventLoopLag\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Adapter CPU and event loop",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "decmbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 107
+      },
+      "id": 34,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Resident memory",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"system.adapter.thermalblindcontrol.0.memRss\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "JavaScript heap",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"system.adapter.thermalblindcontrol.0.memHeapUsed\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Adapter memory",
+      "transparent": false,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 114
+      },
+      "id": 35,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Uptime",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"system.adapter.thermalblindcontrol.0.uptime\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Adapter uptime",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "seII16iRz"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "": {
+                  "color": "green",
+                  "text": "No forecast error"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "No forecast error recorded",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 18,
+        "x": 6,
+        "y": 114
+      },
+      "id": 36,
+      "interval": "1m",
+      "maxDataPoints": 1200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(?!Time$).*/",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "alias": "Forecast error",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.global.forecastError\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Latest forecast error",
+      "transparent": false,
+      "type": "stat"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 118
+      },
+      "id": 37,
+      "panels": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "description": "Deadline stored by the controller. Zero means no recorded hold; an expired deadline is not an active hold.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "0": {
+                      "text": "No hold"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "No data",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last *"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsLocal"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 24,
+            "x": 0,
+            "y": 119
+          },
+          "id": 38,
+          "interval": "1m",
+          "maxDataPoints": 1200,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "13.2.0",
+          "targets": [
+            {
+              "alias": "$3",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "seII16iRz"
+              },
+              "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.manualHoldUntil$/ WHERE $timeFilter",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series"
+            }
+          ],
+          "title": "Manual hold deadlines \u00b7 ${blind:text}",
+          "transformations": [
+            {
+              "id": "reduce",
+              "options": {
+                "includeTimeField": false,
+                "mode": "seriesToRows",
+                "reducers": [
+                  "lastNotNull"
+                ]
+              }
+            }
+          ],
+          "transparent": false,
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "description": "Persisted command identity, target openness, reason, issue/expiry timestamps and feedback progress. Empty means no recorded automatic command.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "": {
+                      "color": "gray",
+                      "text": "No automatic command recorded"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "No automatic command recorded",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last *"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "json-view"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 125
+          },
+          "id": 39,
+          "interval": "1m",
+          "maxDataPoints": 1200,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "13.2.0",
+          "targets": [
+            {
+              "alias": "$3",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "seII16iRz"
+              },
+              "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.lastOwnCommand$/ WHERE $timeFilter",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series"
+            }
+          ],
+          "title": "Last automatic command \u00b7 ${blind:text}",
+          "transformations": [
+            {
+              "id": "reduce",
+              "options": {
+                "includeTimeField": false,
+                "mode": "seriesToRows",
+                "reducers": [
+                  "lastNotNull"
+                ]
+              }
+            }
+          ],
+          "transparent": false,
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "": {
+                      "color": "green",
+                      "text": "No command error"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "noValue": "No command error recorded",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 24,
+            "x": 0,
+            "y": 133
+          },
+          "id": 40,
+          "interval": "1m",
+          "maxDataPoints": 1200,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "13.2.0",
+          "targets": [
+            {
+              "alias": "$3",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "seII16iRz"
+              },
+              "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.commandError$/ WHERE $timeFilter",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series"
+            }
+          ],
+          "title": "Latest actuator errors \u00b7 ${blind:text}",
+          "transformations": [
+            {
+              "id": "reduce",
+              "options": {
+                "includeTimeField": false,
+                "mode": "seriesToRows",
+                "reducers": [
+                  "lastNotNull"
+                ]
+              }
+            }
+          ],
+          "transparent": false,
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "description": "Full JSON retained in InfluxDB for model analysis. Expand the JSON cell; select an earlier dashboard end time to inspect an earlier snapshot.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "noValue": "No data",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last *"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "json-view"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 139
+          },
+          "id": 41,
+          "interval": "1m",
+          "maxDataPoints": 1200,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "13.2.0",
+          "targets": [
+            {
+              "alias": "$3",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "seII16iRz"
+              },
+              "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.temperaturePlan$/ WHERE $timeFilter",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series"
+            }
+          ],
+          "title": "Latest temperature plans \u00b7 ${room:text}",
+          "transformations": [
+            {
+              "id": "reduce",
+              "options": {
+                "includeTimeField": false,
+                "mode": "seriesToRows",
+                "reducers": [
+                  "lastNotNull"
+                ]
+              }
+            }
+          ],
+          "transparent": false,
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "description": "Full JSON retained in InfluxDB for model analysis. Expand the JSON cell; select an earlier dashboard end time to inspect an earlier snapshot.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "noValue": "No data",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last *"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "json-view"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 146
+          },
+          "id": 42,
+          "interval": "1m",
+          "maxDataPoints": 1200,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "13.2.0",
+          "targets": [
+            {
+              "alias": "$3",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "seII16iRz"
+              },
+              "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.rooms\\.${room:regex}\\.runtime$/ WHERE $timeFilter",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series"
+            }
+          ],
+          "title": "Room model runtime \u00b7 ${room:text}",
+          "transformations": [
+            {
+              "id": "reduce",
+              "options": {
+                "includeTimeField": false,
+                "mode": "seriesToRows",
+                "reducers": [
+                  "lastNotNull"
+                ]
+              }
+            }
+          ],
+          "transparent": false,
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "description": "Full JSON retained in InfluxDB for model analysis. Expand the JSON cell; select an earlier dashboard end time to inspect an earlier snapshot.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "noValue": "No data",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last *"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "json-view"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 153
+          },
+          "id": 43,
+          "interval": "1m",
+          "maxDataPoints": 1200,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "13.2.0",
+          "targets": [
+            {
+              "alias": "$3",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "seII16iRz"
+              },
+              "query": "SELECT last(\"value\") FROM /^thermalblindcontrol\\.0\\.windows\\.${blind:regex}\\.runtime$/ WHERE $timeFilter",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series"
+            }
+          ],
+          "title": "Blind runtime and command tracking \u00b7 ${blind:text}",
+          "transformations": [
+            {
+              "id": "reduce",
+              "options": {
+                "includeTimeField": false,
+                "mode": "seriesToRows",
+                "reducers": [
+                  "lastNotNull"
+                ]
+              }
+            }
+          ],
+          "transparent": false,
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "seII16iRz"
+          },
+          "description": "Raw fetched forecast, including location, outdoor temperatures, DNI and facade GTI. Expand the JSON cell for full detail.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "noValue": "No data",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Last *"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "json-view"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 160
+          },
+          "id": 44,
+          "interval": "1m",
+          "maxDataPoints": 1200,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "13.2.0",
+          "targets": [
+            {
+              "alias": "Forecast cache",
+              "datasource": {
+                "type": "influxdb",
+                "uid": "seII16iRz"
+              },
+              "query": "SELECT last(\"value\") FROM \"thermalblindcontrol.0.info.forecastCache\" WHERE $timeFilter",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series"
+            }
+          ],
+          "title": "Weather forecast snapshot",
+          "transformations": [
+            {
+              "id": "reduce",
+              "options": {
+                "includeTimeField": false,
+                "mode": "seriesToRows",
+                "reducers": [
+                  "lastNotNull"
+                ]
+              }
+            }
+          ],
+          "transparent": false,
+          "type": "table"
+        }
+      ],
+      "title": "Detailed debug records \u00b7 command identity, holds, forecasts and model state",
+      "type": "row"
+    }
+  ],
+  "preload": false,
+  "refresh": "1m",
+  "schemaVersion": 42,
+  "tags": [
+    "ioBroker",
+    "thermalblindcontrol",
+    "blinds",
+    "debugging"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "text": [
+            "Ground floor living / dining / kitchen"
+          ],
+          "value": [
+            "eg_wohnen_essen_kueche"
+          ]
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Room",
+        "multi": true,
+        "name": "room",
+        "options": [
+          {
+            "selected": false,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": true,
+            "text": "Ground floor living / dining / kitchen",
+            "value": "eg_wohnen_essen_kueche"
+          },
+          {
+            "selected": false,
+            "text": "Ground floor guest room",
+            "value": "eg_gast"
+          },
+          {
+            "selected": false,
+            "text": "Ground floor garden room",
+            "value": "eg_garten"
+          },
+          {
+            "selected": false,
+            "text": "Upper floor K1",
+            "value": "og_k1"
+          },
+          {
+            "selected": false,
+            "text": "Upper floor K2",
+            "value": "og_k2"
+          },
+          {
+            "selected": false,
+            "text": "Upper floor parents room",
+            "value": "og_eltern"
+          },
+          {
+            "selected": false,
+            "text": "Upper floor bathroom",
+            "value": "og_bad"
+          },
+          {
+            "selected": false,
+            "text": "Attic Gustav",
+            "value": "dg_gustav"
+          }
+        ],
+        "query": "Ground floor living / dining / kitchen : eg_wohnen_essen_kueche,Ground floor guest room : eg_gast,Ground floor garden room : eg_garten,Upper floor K1 : og_k1,Upper floor K2 : og_k2,Upper floor parents room : og_eltern,Upper floor bathroom : og_bad,Attic Gustav : dg_gustav",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Blind",
+        "multi": true,
+        "name": "blind",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "eg_esszimmer",
+            "value": "eg_esszimmer"
+          },
+          {
+            "selected": false,
+            "text": "eg_kueche",
+            "value": "eg_kueche"
+          },
+          {
+            "selected": false,
+            "text": "eg_gast",
+            "value": "eg_gast"
+          },
+          {
+            "selected": false,
+            "text": "eg_garten",
+            "value": "eg_garten"
+          },
+          {
+            "selected": false,
+            "text": "eg_wohnzimmer3",
+            "value": "eg_wohnzimmer3"
+          },
+          {
+            "selected": false,
+            "text": "eg_wohnzimmer2",
+            "value": "eg_wohnzimmer2"
+          },
+          {
+            "selected": false,
+            "text": "eg_wohnzimmer1",
+            "value": "eg_wohnzimmer1"
+          },
+          {
+            "selected": false,
+            "text": "og_k1_1",
+            "value": "og_k1_1"
+          },
+          {
+            "selected": false,
+            "text": "og_k1_2",
+            "value": "og_k1_2"
+          },
+          {
+            "selected": false,
+            "text": "og_k2_1",
+            "value": "og_k2_1"
+          },
+          {
+            "selected": false,
+            "text": "og_k2_2",
+            "value": "og_k2_2"
+          },
+          {
+            "selected": false,
+            "text": "og_eltern_1",
+            "value": "og_eltern_1"
+          },
+          {
+            "selected": false,
+            "text": "og_bad1",
+            "value": "og_bad1"
+          },
+          {
+            "selected": false,
+            "text": "og_bad2",
+            "value": "og_bad2"
+          },
+          {
+            "selected": false,
+            "text": "dg_gustav",
+            "value": "dg_gustav"
+          }
+        ],
+        "query": "eg_esszimmer : eg_esszimmer,eg_kueche : eg_kueche,eg_gast : eg_gast,eg_garten : eg_garten,eg_wohnzimmer3 : eg_wohnzimmer3,eg_wohnzimmer2 : eg_wohnzimmer2,eg_wohnzimmer1 : eg_wohnzimmer1,og_k1_1 : og_k1_1,og_k1_2 : og_k1_2,og_k2_1 : og_k2_1,og_k2_2 : og_k2_2,og_eltern_1 : og_eltern_1,og_bad1 : og_bad1,og_bad2 : og_bad2,dg_gustav : dg_gustav",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Thermal Blindcontrol",
+  "uid": "adrd76w",
+  "version": 6
+}

@@ -1,0 +1,31 @@
+{
+  "verifiedAt": "2026-10-15T19:14:25.648321+00:00",
+  "ioBroker": {
+    "adapter": "thermalblindcontrol.0",
+    "history": "influxdb.0",
+    "rooms": 8,
+    "blinds": 15,
+    "datapoints": 399,
+    "newlyConfigured": 382,
+    "existingConfigurationsPreserved": 17,
+    "measurementsWithData": 399,
+    "backupDirectoryInContainer": "/opt/iobroker/iobroker-data/thermalblindcontrol-observability/2026-10-15T19-00-58-564Z"
+  },
+  "grafana": {
+    "dashboardUid": "adrd76w",
+    "version": 6,
+    "datasourceUid": "seII16iRz",
+    "url": "http://192.168.178.40:3000/d/adrd76w/thermal-blindcontrol",
+    "panelsIncludingRowsAndDebug": 44,
+    "queriesVerified": 69,
+    "queryErrors": 0,
+    "browserChecks": [
+      "Operating mode and text state widgets",
+      "All 15 actual and planned openness gauges",
+      "Current decisions for all 15 blinds",
+      "Room temperature and solar budget curves",
+      "Independent room/blind selectors",
+      "Expandable JSON debug records"
+    ]
+  }
+}

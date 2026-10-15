@@ -1,0 +1,81 @@
+{
+  "common": {
+    "name": "thermalblindcontrol",
+    "version": "0.1.0",
+    "titleLang": {
+      "en": "Thermal blind control",
+      "de": "Thermische Rollladensteuerung"
+    },
+    "desc": {
+      "en": "Forecast-based room thermal modelling and blind control",
+      "de": "Prognosebasierte thermische Raum- und Rollladensteuerung"
+    },
+    "authors": [
+      "Nils"
+    ],
+    "license": "MIT",
+    "platform": "Javascript/Node.js",
+    "mode": "daemon",
+    "main": "build/main.js",
+    "icon": "thermalblindcontrol.svg",
+    "enabled": true,
+    "compact": true,
+    "connectionType": "cloud",
+    "dataSource": "poll",
+    "type": "climate-control",
+    "adminUI": {
+      "config": "json"
+    },
+    "dependencies": [
+      {
+        "js-controller": ">=6.0.0"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.0.0"
+      }
+    ]
+  },
+  "native": {
+    "enabled": false,
+    "disabledToday": false,
+    "vacationMode": false,
+    "dryRun": true,
+    "thermalMode": "shadow",
+    "latitude": 50.47,
+    "longitude": 7.47,
+    "timezone": "Europe/Berlin",
+    "optimizationIntervalMinutes": 15,
+    "forecastRefreshMinutes": 60,
+    "forecastMaxAgeMinutes": 180,
+    "sensorMaxAgeMinutes": 180,
+    "positionMaxAgeMinutes": 10080,
+    "startupDelaySeconds": 30,
+    "manualOverrideMinutes": 60,
+    "minMovementIntervalMinutes": 15,
+    "minPositionChange": 10,
+    "positionTolerance": 3,
+    "minimumSolarPowerPerWindowW": 0,
+    "firstOpenPercent": 90,
+    "morningEarliest": "07:00",
+    "morningLatest": "10:00",
+    "morningOffsetMinutes": 0,
+    "eveningEarliest": "17:00",
+    "eveningLatest": "22:00",
+    "eveningOffsetMinutes": 0,
+    "scheduleCatchUpMinutes": 60,
+    "toleranceMaxC": 4,
+    "toleranceStartK": 1,
+    "toleranceFullK": 8,
+    "limitSmoothingMinutes": 60,
+    "centralHeating": {
+      "flowTemperatureId": "",
+      "returnTemperatureId": ""
+    },
+    "rooms": [],
+    "windows": []
+  },
+  "objects": [],
+  "instanceObjects": []
+}
