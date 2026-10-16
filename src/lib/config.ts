@@ -25,7 +25,7 @@ export interface Config {
     latitude: number; longitude: number; timezone: string;
     optimizationIntervalMinutes: number; forecastRefreshMinutes: number; forecastMaxAgeMinutes: number;
     sensorMaxAgeMinutes: number; positionMaxAgeMinutes: number; startupDelaySeconds: number;
-    manualOverrideMinutes: number; minMovementIntervalMinutes: number; minPositionChange: number; positionTolerance: number;
+    manualOverrideMinutes: number; minMovementIntervalMinutes: number; allowedPositions: number[]; positionTolerance: number;
     minimumSolarPowerPerWindowW: number;
     respectManualPositionUntilEndOfDay: boolean;
     firstOpenPercent: number; morningEarliest: string; morningLatest: string; morningOffsetMinutes: number;
@@ -46,7 +46,7 @@ export const defaults: Config = {
     latitude: 50.47, longitude: 7.47, timezone: 'Europe/Berlin',
     optimizationIntervalMinutes: 15, forecastRefreshMinutes: 60, forecastMaxAgeMinutes: 180,
     sensorMaxAgeMinutes: 180, positionMaxAgeMinutes: 10080, startupDelaySeconds: 30,
-    manualOverrideMinutes: 60, minMovementIntervalMinutes: 15, minPositionChange: 10, positionTolerance: 3,
+    manualOverrideMinutes: 60, minMovementIntervalMinutes: 15, allowedPositions: [100, 80, 60, 40, 20, 10, 0], positionTolerance: 3,
     minimumSolarPowerPerWindowW: 0,
     respectManualPositionUntilEndOfDay: false,
     firstOpenPercent: 90, morningEarliest: '07:00', morningLatest: '10:00', morningOffsetMinutes: 0,
@@ -86,7 +86,7 @@ export function normalizeDottedFields(data: Record<string, any>, property: strin
     }
     return changed;
 }
-export function migrateLegacyHeatingConfig(raw: unknown): Record<string, any> {
+export function migrateLegacyConfig(raw: unknown): Record<string, any> {
     const original = object(raw), input = { ...original };
     let changed = normalizeDottedFields(input, 'centralHeating', Object.keys(defaults.centralHeating));
     if (Array.isArray(input.rooms)) {
@@ -97,10 +97,18 @@ export function migrateLegacyHeatingConfig(raw: unknown): Record<string, any> {
             return room;
         });
     }
+    if (Object.hasOwn(input, 'minPositionChange')) { delete input.minPositionChange; changed = true; }
+    if (input.global && Object.hasOwn(object(input.global), 'minPositionChange')) {
+        input.global = { ...input.global };
+        delete input.global.minPositionChange;
+        changed = true;
+    }
+    if (changed && input.allowedPositions === undefined && input.global?.allowedPositions === undefined)
+        input.allowedPositions = [...defaults.allowedPositions];
     return changed ? input : original;
 }
 export function parseConfig(raw: unknown): Config {
-    const input = migrateLegacyHeatingConfig(raw);
+    const input = migrateLegacyConfig(raw);
     const c: Config = { ...structuredClone(defaults), ...input, ...(input.global ? object(input.global) : {}),
         centralHeating: { ...defaults.centralHeating, ...input.centralHeating } };
     for (const key of ['enabled', 'disabledToday', 'vacationMode', 'dryRun', 'respectManualPositionUntilEndOfDay'] as const)
@@ -111,12 +119,20 @@ export function parseConfig(raw: unknown): Config {
         latitude: [-89, 89], longitude: [-180, 180], optimizationIntervalMinutes: [1, 60], forecastRefreshMinutes: [15, 1440],
         forecastMaxAgeMinutes: [30, 1440], sensorMaxAgeMinutes: [1, 43200], positionMaxAgeMinutes: [1, 43200],
         startupDelaySeconds: [0, 3600], manualOverrideMinutes: [60, 1440], minMovementIntervalMinutes: [15, 1440],
-        minPositionChange: [1, 100], positionTolerance: [0.1, 10], firstOpenPercent: [50, 100],
+        positionTolerance: [0.1, 10], firstOpenPercent: [50, 100],
         minimumSolarPowerPerWindowW: [0, 10000],
         morningOffsetMinutes: [-180, 180], eveningOffsetMinutes: [-180, 180], scheduleCatchUpMinutes: [1, 180],
         toleranceMaxC: [0, 10], toleranceStartK: [-10, 20], toleranceFullK: [-9, 30], limitSmoothingMinutes: [0, 1440],
     };
     for (const [key, range] of Object.entries(ranges)) (c as any)[key] = number((c as any)[key], key, range[0], range[1]);
+    if (!Array.isArray(c.allowedPositions)) throw new Error('allowedPositions must be an array of percentages');
+    c.allowedPositions = [...new Set(c.allowedPositions.map((value: unknown) => {
+        if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim()))
+            throw new Error('allowedPositions must contain numeric percentages');
+        return number(value, 'allowedPositions', 0, 100);
+    }))].sort((a, b) => b - a);
+    if (c.allowedPositions[0] !== 100 || c.allowedPositions.at(-1) !== 0)
+        throw new Error('allowedPositions must include 100 (fully open) and 0 (fully closed)');
     if (c.toleranceFullK <= c.toleranceStartK) throw new Error('toleranceFullK must exceed toleranceStartK');
     for (const key of ['morningEarliest', 'morningLatest', 'eveningEarliest', 'eveningLatest'] as const)
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(c[key])) throw new Error(`Invalid ${key}`);
@@ -167,7 +183,12 @@ export function normalizePosition(value: unknown, w: WindowConfig): number | nul
 export function devicePosition(openness: number, w: WindowConfig): number {
     return w.deviceClosedValue + openness / 100 * (w.deviceOpenValue - w.deviceClosedValue);
 }
-export function automaticPosition(target: number, minPositionChange: number, maximumPosition = 100): number {
-    // Snap near-open plans before checking the actual move size. A manual ceiling retains priority.
-    return Math.min(maximumPosition, target + minPositionChange > 100 ? 100 : target);
+export function automaticPosition(target: number, allowedPositions: readonly number[], maximumPosition = 100): number {
+    // Configuration normalizes the list from most open to most closed. Round up
+    // before predicting heat or issuing commands, while keeping manual ceilings.
+    const ceiling = allowedPositions.find(position => position <= maximumPosition)!;
+    const requested = Math.max(0, Math.min(target, ceiling));
+    for (let i = allowedPositions.length - 1; i >= 0; i--)
+        if (allowedPositions[i] >= requested) return allowedPositions[i];
+    return ceiling;
 }

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { defaults, roomDefaults, heatingDefaults, windowDefaults, parseConfig } = require('../build/lib/config');
+const { defaults, roomDefaults, heatingDefaults, windowDefaults, parseConfig, migrateLegacyConfig, automaticPosition } = require('../build/lib/config');
 const admin = require('../admin/jsonConfig.json');
 const roomSchema = admin.items._Rooms.items.rooms;
 const room = (overrides = {}) => ({ ...structuredClone(roomDefaults), id: 'eg_gast', temperatureSensorId: 'room.temperature', ...overrides });
@@ -87,4 +87,56 @@ test('legacy edits undergo heating validation and actuator/input collision check
     assert.throws(() => parseConfig({ ...config([room({ 'heating.demandId': 'blind.target' })]),
         windows: [{ ...windowDefaults, id: 'blind', roomId: 'eg_gast', positionStateId: 'blind.actual', positionCommandId: 'blind.target' }] }),
     /A blind command must never target/);
+});
+
+test('allowed positions normalize numeric Admin chips without mutating the saved list', () => {
+    const raw = ['20', 0, '100', 80, '10', 40, 60, '20'];
+    const before = structuredClone(raw);
+    const c = parseConfig({ allowedPositions: raw });
+    assert.deepEqual(c.allowedPositions, [100, 80, 60, 40, 20, 10, 0]);
+    assert.deepEqual(raw, before);
+    assert.deepEqual(parseConfig(c), c);
+    for (const [requested, expected] of [[17, 20], [20, 20], [1, 10], [0, 0], [100, 100], [20.01, 40]])
+        assert.equal(automaticPosition(requested, c.allowedPositions), expected);
+    assert.equal(automaticPosition(100, c.allowedPositions, 35), 20);
+});
+
+test('allowed positions reject malformed lists and require both schedule endpoints', () => {
+    for (const allowedPositions of [undefined, null, '', '100, 20, 0', 20, {}, [], [0], [100], [20, 80],
+        [100, -1, 0], [100, 101, 0], [100, NaN, 0], [100, Infinity, 0], [100, null, 0],
+        [100, true, 0], [100, '', 0], [100, ' ', 0], [100, 'invalid', 0], [100, {}, 0], [100, [], 0]])
+        assert.throws(() => parseConfig({ allowedPositions }), /allowedPositions/);
+    assert.deepEqual(parseConfig({}).allowedPositions, [100, 80, 60, 40, 20, 10, 0]);
+});
+
+test('saved minimum movement settings migrate once to allowed positions without changing other settings', () => {
+    for (const legacy of [{ minPositionChange: 10 }, { global: { minPositionChange: 99, enabled: true } },
+        { minPositionChange: 'obsolete', global: { minPositionChange: 0 } }]) {
+        const raw = { ...legacy, extraSetting: 'preserved' }, before = structuredClone(raw);
+        const migrated = migrateLegacyConfig(raw);
+        assert.deepEqual(migrated.allowedPositions, defaults.allowedPositions);
+        assert(!Object.hasOwn(migrated, 'minPositionChange'));
+        assert(!migrated.global || !Object.hasOwn(migrated.global, 'minPositionChange'));
+        assert.equal(migrated.extraSetting, 'preserved');
+        assert.deepEqual(raw, before);
+        assert.equal(migrateLegacyConfig(migrated), migrated, 'clean configuration must not cause repeated saves');
+        assert.deepEqual(parseConfig(raw).allowedPositions, defaults.allowedPositions);
+    }
+    const custom = [100, 75, 25, 0];
+    assert.deepEqual(parseConfig({ minPositionChange: 10, allowedPositions: custom }).allowedPositions, custom);
+    assert.deepEqual(parseConfig({ minPositionChange: 10, global: { allowedPositions: custom } }).allowedPositions, custom);
+});
+
+test('Admin exposes an editable allowed-position list and validates its array values', () => {
+    const general = admin.items._General.items;
+    assert(!Object.hasOwn(general, 'minPositionChange'));
+    assert.equal(general.allowedPositions.type, 'chips');
+    assert.deepEqual(general.allowedPositions.default, defaults.allowedPositions);
+    const valid = new Function('data', `return ${general.allowedPositions.validator}`);
+    for (const allowedPositions of [defaults.allowedPositions, ['100', '20', '0'], [0, 37.5, 100]]) {
+        assert(valid({ allowedPositions }));
+        assert.doesNotThrow(() => parseConfig({ allowedPositions }));
+    }
+    for (const allowedPositions of [[], [100], [0, 20], [100, '', 0], [100, true, 0], [100, 101, 0]])
+        assert(!valid({ allowedPositions }));
 });

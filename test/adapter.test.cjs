@@ -126,6 +126,31 @@ test('shared own target echo retains confirmed feedback until the motor reports 
     assert.equal(a.results.get('room').plan[0].positions[w.id], target);
     assert.equal(a.commands.length, 3);
 });
+test('matching windows at 16, 14 and 9 all publish and command 20 after cooldown expiry', async t => {
+    for (const shared of [false, true]) {
+        const { a } = await matchingWindowFixture(t, shared);
+        const originalPositions = [16, 14, 9];
+        a.settings.minimumSolarPowerPerWindowW = 17;
+        a.inputs.set('room.temp', { val: 30, ack: true, ts: clock });
+        for (const interval of a.forecast.intervals) { interval.outsideC = 30; interval.gti['180'] = 100; }
+        for (const [i, w] of a.settings.windows.entries()) {
+            const r = a.windows.get(w.id);
+            r.actualPosition = originalPositions[i]; r.observationAnchor = originalPositions[i];
+            r.lastAutoAt = clock - 15 * MINUTE;
+            a.inputs.set(w.positionStateId, { val: originalPositions[i], ack: true, ts: clock });
+        }
+        a.dirty = true; await a.evaluate();
+        assert.equal(a.commands.length, 3);
+        assert(a.commands.every(command => command.val === 20));
+        for (const w of a.settings.windows) {
+            assert.equal(a.states.get(`windows.${w.id}.calculatedPosition`).val, 20);
+            assert.equal(a.results.get('room').plan[0].positions[w.id], 20);
+            assert.equal(a.windows.get(w.id).manualHoldUntil, 0);
+        }
+        await a.evaluate();
+        assert.equal(a.commands.length, 3, 'the movement interval still prevents duplicate commands');
+    }
+});
 test('pending room targets survive restart and stop being assumed after the travel timeout', async t => {
     const { a, target } = await matchingWindowFixture(t);
     await a.evaluate(); assert.equal(a.commands.length, 3);
@@ -204,6 +229,23 @@ test('startup migrates legacy runtime before comparing hardware feedback and per
     clock += 30 * 1000;
     await a.stateChanged('blind.actual', { val: 0, ts: clock, ack: true, from: 'system.adapter.motor.0' });
     assert.equal(r.actualPosition, 0); assert.equal(r.ownCommand.completed, true); assert.equal(r.manualHoldUntil, 0);
+});
+test('startup replaces saved minimum movement configuration and preserves a custom position list', async t => {
+    for (const allowedPositions of [undefined, [100, 75, 25, 0]]) {
+        const native = baseConfig(); delete native.allowedPositions;
+        native.minPositionChange = 10;
+        native.global = { minPositionChange: 99 };
+        if (allowedPositions) native.allowedPositions = allowedPositions;
+        const a = await fixture(t, { native, rawNative: native });
+        assert.equal(a.configWrites.length, 1); assert.equal(a.commands.length, 0);
+        const saved = a.instanceObject.native;
+        assert(!Object.hasOwn(saved, 'minPositionChange'));
+        assert(!Object.hasOwn(saved.global, 'minPositionChange'));
+        assert.deepEqual(saved.allowedPositions, allowedPositions || defaults.allowedPositions);
+        assert.deepEqual(a.settings.allowedPositions, saved.allowedPositions);
+        const restarted = await fixture(t, { native: saved, rawNative: saved, states: a.states });
+        assert.equal(restarted.configWrites.length, 0);
+    }
 });
 test('active controller persists intent before device write, uses configured polarity, and never writes heating inputs', async t => {
     const c = baseConfig(); c.rooms[0].heating = { ...c.rooms[0].heating, type: 'radiator', demandId: 'heating.demand', valvePositionId: 'heating.valve' };
@@ -359,9 +401,9 @@ test('the adapter preserves 20 W of daylight per window when its heat budget is 
     assert(openness > 0); assert(potential * (openness / 100) >= 20 - 1e-7);
     assert(a.states.get('rooms.room.solarBudgetExceeded').val);
 });
-test('motor writes ignore 49 to 53 but perform 30 to 53 and the exact 10-point boundary', async t => {
+test('motor writes use the next more open allowed position even for one-point changes', async t => {
     const c = baseConfig({ minimumSolarPowerPerWindowW: 79.5 });
-    for (const [actual, moved] of [[49, false], [30, true], [43, true]]) {
+    for (const [actual, moved] of [[49, true], [30, true], [59, true], [61, true], [60, false]]) {
         const r = newWindow(c.windows[0], c, fixedNow);
         r.actualPosition = actual; r.observationAnchor = actual; r.participatingToday = true;
         const states = new Map([['windows.south.runtime', { val: JSON.stringify(r), ack: true, ts: fixedNow }]]);
@@ -369,12 +411,12 @@ test('motor writes ignore 49 to 53 but perform 30 to 53 and the exact 10-point b
         a.startedAt -= 2 * HOUR;
         for (const interval of a.forecast.intervals) interval.gti['180'] = 100;
         await a.evaluate();
-        assert.deepEqual(a.commands, moved ? [{ id: 'blind.target', val: 53, ack: false }] : [], `${actual} -> 53`);
+        assert.deepEqual(a.commands, moved ? [{ id: 'blind.target', val: 60, ack: false }] : [], `${actual} -> 60`);
         assert.equal(a.windows.get('south').lastAutoAt, moved ? fixedNow : 0);
     }
 });
 test('near-open plans publish 100 and command fully open using the configured device endpoints', async t => {
-    for (const [actual, open, closed, moved] of [[70, 100, 0, true], [89, 0, 1, true], [95, 100, 0, false], [100, 100, 0, false]]) {
+    for (const [actual, open, closed, moved] of [[70, 100, 0, true], [89, 0, 1, true], [95, 100, 0, true], [99, 100, 0, true], [100, 100, 0, false]]) {
         const c = baseConfig({ minimumSolarPowerPerWindowW: 136.5 });
         c.windows[0].deviceOpenValue = open; c.windows[0].deviceClosedValue = closed;
         const r = newWindow(c.windows[0], c, fixedNow);
@@ -424,10 +466,10 @@ test('manual limits reach motor writes, survive own feedback and restart, and ar
     assert.equal(a.windows.get('south').manualPositionLimit, 25, 'automatic closing to zero must not change the manual preference');
     clock += 15 * MINUTE;
     a.forecast = syntheticForecast(clock, a.settings, -5, 0, 100); a.dirty = true; await a.evaluate();
-    assert.deepEqual(a.commands[1], { id: 'blind.target', val: 25, ack: false });
-    assert.equal(a.states.get('windows.south.calculatedPosition').val, 25);
+    assert.deepEqual(a.commands[1], { id: 'blind.target', val: 20, ack: false });
+    assert.equal(a.states.get('windows.south.calculatedPosition').val, 20);
     const b = await fixture(t, { now: clock + MINUTE, native: { respectManualPositionUntilEndOfDay: true }, states: a.states,
-        foreign: new Map([['blind.actual', { val: 25, ack: true, ts: clock + MINUTE }]]) });
+        foreign: new Map([['blind.actual', { val: 20, ack: true, ts: clock + MINUTE }]]) });
     assert.equal(b.windows.get('south').manualPositionLimit, 25);
     assert.equal(b.windows.get('south').manualHoldUntil, a.windows.get('south').manualHoldUntil);
     assert.equal(b.states.get('windows.south.manualPositionLimit').val, 25);
@@ -435,13 +477,13 @@ test('manual limits reach motor writes, survive own feedback and restart, and ar
 test('morning enrollment completes when the blind is already at its manual ceiling', async t => {
     const c = baseConfig({ respectManualPositionUntilEndOfDay: true }), morning = schedule(fixedNow, c).morning;
     const r = newWindow(c.windows[0], c, morning);
-    r.actualPosition = 25; r.manualPositionLimit = 25; r.manualPositionLimitDate = localDate(morning, c.timezone);
+    r.actualPosition = 20; r.manualPositionLimit = 25; r.manualPositionLimitDate = localDate(morning, c.timezone);
     const g = newGlobal(c, morning); g.modeChangedAt = morning - 24 * HOUR;
     const states = new Map([
         ['windows.south.runtime', { val: JSON.stringify(r), ts: morning, ack: true }],
         ['global.runtime', { val: JSON.stringify(g), ts: morning, ack: true }],
     ]);
-    const a = await fixture(t, { now: morning, native: c, states, foreign: new Map([['blind.actual', { val: 25, ts: morning, ack: true }]]) });
+    const a = await fixture(t, { now: morning, native: c, states, foreign: new Map([['blind.actual', { val: 20, ts: morning, ack: true }]]) });
     a.startedAt -= 2 * HOUR; await a.evaluate();
     assert.equal(a.commands.length, 0); assert.equal(a.windows.get('south').participatingToday, true);
     assert.equal(a.windows.get('south').morningDate, localDate(morning, c.timezone));

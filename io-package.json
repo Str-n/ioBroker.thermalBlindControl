@@ -54,7 +54,15 @@
     "startupDelaySeconds": 30,
     "manualOverrideMinutes": 60,
     "minMovementIntervalMinutes": 15,
-    "minPositionChange": 10,
+    "allowedPositions": [
+      100,
+      80,
+      60,
+      40,
+      20,
+      10,
+      0
+    ],
     "positionTolerance": 3,
     "minimumSolarPowerPerWindowW": 0,
     "respectManualPositionUntilEndOfDay": false,

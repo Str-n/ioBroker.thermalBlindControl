@@ -9,6 +9,7 @@ const start = Date.parse('2026-07-15T10:00:00+02:00');
 const heating = { setpointC: 21, demand: false, valvePercent: 0, flowC: null, returnC: null };
 function fixture(profile = () => 1000, overrides = {}) {
     const c = parseConfig({ ...defaults, enabled: true, dryRun: false, thermalMode: 'active', toleranceMaxC: 0,
+        allowedPositions: Array.from({ length: 101 }, (_, i) => 100 - i),
         rooms: [{ ...roomDefaults, id: 'room', temperatureSensorId: 'sim.room', heatLossWK: 100 }],
         windows: [{ ...windowDefaults, id: 'south', roomId: 'room', azimuthDeg: 180, glassAreaM2: 2, gValue: 0.5,
             closedTransmission: 0, positionStateId: 'sim.actual', positionCommandId: 'sim.target' }], ...overrides });
@@ -95,48 +96,55 @@ test('minimum daylight remains admitted per window even when the heat budget is 
     assert.equal(multi.targets.south, 20); assert.equal(multi.targets.other, 10);
     assert(Math.abs(multi.plan[0].solarW - 40) < 1e-7, 'the minimum is per window, not shared across the room');
 });
-test('the forecast retains actual positions for sub-threshold daylight corrections and plans sufficiently large moves', () => {
-    const { c, grid, run } = fixture(() => 100, { minimumSolarPowerPerWindowW: 53 });
+test('the forecast rounds daylight requests up to allowed steps and uses their full heat gain', () => {
+    const { c, grid, run } = fixture(() => 100, { minimumSolarPowerPerWindowW: 53, allowedPositions: defaults.allowedPositions });
     grid.forEach(p => { p.outsideC = 30; });
-    for (const [position, expected] of [[49, 49], [30, 53], [43, 53], [57, 57]]) {
+    for (const position of [49, 30, 59, 60, 61]) {
         const m = run(30, [{ config: c.windows[0], position, movableAfter: start, lastMoveAt: 0 }]);
-        assert.equal(m.targets.south, expected, `actual ${position}, requested 53`);
-        assert(Math.abs(m.plan[0].solarW - expected) < 1e-7, 'heat balance must use the held position');
-        let previous = position;
-        for (const p of m.plan) {
-            const delta = Math.abs(p.positions.south - previous);
-            assert(delta === 0 || delta >= c.minPositionChange, `forecast move ${previous} -> ${p.positions.south}`);
-            previous = p.positions.south;
-        }
+        assert.equal(m.targets.south, 60, `actual ${position}, daylight requests 53`);
+        assert.equal(m.plan[0].solarW, 60, 'heat balance must use the rounded position');
+        assert(m.plan.every(p => c.allowedPositions.includes(p.positions.south)));
+        assert(Math.abs(m.plan[0].temperature - rcStep(30, 30, 60, c.rooms[0].heatLossWK, m.capacityWhK, 0.25)) < 1e-7);
+        assert(m.solarBudgetExceeded, 'the extra heat from rounding must remain visible');
     }
 });
-test('the forecast includes near-open snapping and retained sub-threshold positions in the heat balance', () => {
-    const { c, grid, run } = fixture(() => 100, { minimumSolarPowerPerWindowW: 91 });
+test('near-open daylight targets round to 100 even from 99 and ceilings use allowed steps', () => {
+    const { c, grid, run } = fixture(() => 100, { minimumSolarPowerPerWindowW: 91, allowedPositions: defaults.allowedPositions });
     grid.forEach(p => { p.outsideC = 30; });
-    for (const [position, expected] of [[70, 100], [89, 100], [90, 100], [95, 95], [100, 100]]) {
+    for (const position of [70, 89, 90, 95, 99, 100]) {
         const m = run(30, [{ config: c.windows[0], position, movableAfter: start, lastMoveAt: 0 }]);
-        assert.equal(m.targets.south, expected, `actual ${position}, requested 91`);
-        assert(m.plan.slice(0, 24).every(p => p.positions.south === expected && p.solarW === expected));
-        assert(Math.abs(m.plan[0].temperature - rcStep(30, 30, expected, c.rooms[0].heatLossWK, m.capacityWhK, 0.25)) < 1e-7);
-        assert(m.solarBudgetExceeded, 'the heat from the snapped daylight allowance must remain visible');
+        assert.equal(m.targets.south, 100, `actual ${position}, requested 91`);
+        assert(m.plan.slice(0, 24).every(p => p.positions.south === 100 && p.solarW === 100));
     }
-    const boundary = fixture(() => 100, { minimumSolarPowerPerWindowW: 90 });
-    boundary.grid.forEach(p => { p.outsideC = 30; });
-    assert.equal(boundary.run(30, [{ config: boundary.c.windows[0], position: 70, movableAfter: start, lastMoveAt: 0 }]).targets.south, 90);
-    for (const maximumPosition of [0, 25, 90, 95]) {
-        const m = run(30, [{ config: c.windows[0], position: 0, movableAfter: start, lastMoveAt: 0, maximumPosition, maximumPositionUntil: nextMidnight(start, c.timezone) }]);
-        assert.equal(m.targets.south, maximumPosition);
-        assert(m.plan.filter(p => p.time <= nextMidnight(start, c.timezone)).every(p => p.positions.south <= maximumPosition));
-        assert.equal(m.plan[0].solarW, maximumPosition);
-    }
-});
-test('reopening without direct sun obeys the same threshold in the forecast', () => {
-    const { c, grid, run } = fixture(); grid.forEach(p => { p.dni = 0; });
-    for (const [position, expected] of [[96, 96], [91, 91], [90, 100], [70, 100]]) {
-        const m = run(21, [{ config: c.windows[0], position, movableAfter: start, lastMoveAt: 0 }]);
+    for (const [maximumPosition, expected] of [[0, 0], [9, 0], [25, 20], [90, 80], [95, 80]]) {
+        const m = run(30, [{ config: c.windows[0], position: 0, movableAfter: start, lastMoveAt: 0,
+            maximumPosition, maximumPositionUntil: nextMidnight(start, c.timezone) }]);
         assert.equal(m.targets.south, expected);
-        assert(m.plan.every(p => p.positions.south === expected));
+        assert(m.plan.filter(p => p.time <= nextMidnight(start, c.timezone)).every(p => p.positions.south <= maximumPosition));
+        assert.equal(m.plan[0].solarW, expected);
     }
+});
+test('reopening without direct sun is no longer suppressed by a minimum change', () => {
+    const { c, grid, run } = fixture(undefined, { allowedPositions: defaults.allowedPositions }); grid.forEach(p => { p.dni = 0; });
+    for (const position of [99, 96, 91, 90, 70]) {
+        const m = run(21, [{ config: c.windows[0], position, movableAfter: start, lastMoveAt: 0 }]);
+        assert.equal(m.targets.south, 100);
+        assert(m.plan.every(p => p.positions.south === 100));
+    }
+});
+test('matching eligible windows at 16, 14 and 9 converge to 20 for a 17-percent daylight request', () => {
+    const { c, grid } = fixture(() => 100, { minimumSolarPowerPerWindowW: 17, allowedPositions: defaults.allowedPositions });
+    grid.forEach(p => { p.outsideC = 30; });
+    const windows = [16, 14, 9].map((position, i) => ({ config: { ...c.windows[0], id: `matching${i}` },
+        position, movableAfter: start, lastMoveAt: start - 15 * MINUTE }));
+    const m = optimizeRoom(c.rooms[0], windows, grid, 30, heating, newRoomRuntime(), c, start);
+    assert.deepEqual(Object.values(m.targets), [20, 20, 20]);
+    assert.equal(m.plan[0].solarW, 60);
+    const held = structuredClone(windows); held[0].lastMoveAt = start - MINUTE;
+    const blocked = optimizeRoom(c.rooms[0], held, grid, 30, heating, newRoomRuntime(), c, start);
+    assert.equal(blocked.targets.matching0, 16, 'cooldown must retain the actual heat contribution');
+    assert.equal(blocked.targets.matching1, 20); assert.equal(blocked.targets.matching2, 20);
+    assert.equal(blocked.plan[0].solarW, 56);
 });
 test('the complete forecast honors a manual opening ceiling, its heat balance, and local-midnight expiry', () => {
     const { c, run } = fixture(), midnight = nextMidnight(start, c.timezone);
@@ -192,10 +200,9 @@ test('the hourly held position preserves the daylight minimum when sunlight fade
     assert(m.plan.slice(0, 4).every(p => p.positions.south === 20));
     assert(m.plan.slice(0, 24).every(p => p.solarW >= 20 - 1e-7));
 });
-test('daylight and movement settings validate and keep previous defaults for saved configurations', () => {
-    const { c } = fixture(); assert.equal(c.minimumSolarPowerPerWindowW, 0); assert.equal(c.minMovementIntervalMinutes, 15); assert.equal(c.minPositionChange, 10); assert.equal(c.respectManualPositionUntilEndOfDay, false);
+test('daylight and movement interval settings retain their defaults and validation', () => {
+    const { c } = fixture(); assert.equal(c.minimumSolarPowerPerWindowW, 0); assert.equal(c.minMovementIntervalMinutes, 15); assert.equal(c.respectManualPositionUntilEndOfDay, false);
     assert.equal(parseConfig({ ...c, minimumSolarPowerPerWindowW: 20, minMovementIntervalMinutes: 60 }).minMovementIntervalMinutes, 60);
     for (const value of [-1, NaN, Infinity, null, true, '']) assert.throws(() => parseConfig({ ...c, minimumSolarPowerPerWindowW: value }));
-    for (const value of [0, 101, NaN, Infinity, null, true, '']) assert.throws(() => parseConfig({ ...c, minPositionChange: value }));
     for (const value of [0, 1, 'true', null]) assert.throws(() => parseConfig({ ...c, respectManualPositionUntilEndOfDay: value }));
 });

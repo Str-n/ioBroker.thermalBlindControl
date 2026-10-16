@@ -14,8 +14,11 @@ function labels() {
 function reset() { generation++; runtime = null; manual = {}; log = []; pendingTemperature = Number($('roomTemperature').value); }
 function requestSoon() { labels(); clearTimeout(debounce); debounce = setTimeout(() => run(), 100); }
 function simulationSettings() {
-  const preferences = { thermalMode: $('thermalMode').value, minimumSolarPowerPerWindowW: Number($('minimumSolarPowerPerWindowW').value), minMovementIntervalMinutes: Number($('minMovementIntervalMinutes').value), minPositionChange: Number($('minPositionChange').value), respectManualPositionUntilEndOfDay: $('respectManualPositionUntilEndOfDay').checked };
-  return { ...config, ...preferences, ...(config.global ? { global: { ...config.global, ...preferences } } : {}) };
+  const preferences = { thermalMode: $('thermalMode').value, minimumSolarPowerPerWindowW: Number($('minimumSolarPowerPerWindowW').value), minMovementIntervalMinutes: Number($('minMovementIntervalMinutes').value), allowedPositions: $('allowedPositions').value.split(',').map(value => value.trim() === '' ? '' : Number(value)), respectManualPositionUntilEndOfDay: $('respectManualPositionUntilEndOfDay').checked };
+  const settings = { ...config, ...preferences, ...(config.global ? { global: { ...config.global, ...preferences } } : {}) };
+  delete settings.minPositionChange;
+  if (settings.global) delete settings.global.minPositionChange;
+  return settings;
 }
 async function run(timestamp) {
   if (!config) return;
@@ -139,7 +142,7 @@ $('play').addEventListener('click', () => { if (playing) stop(); else { playing 
 $('step').addEventListener('click', () => { stop(); run((runtime?.timestamp || result.timestamp) + 15 * 60000); });
 $('reset').addEventListener('click', () => { stop(); reset(); requestSoon(); });
 for (const id of ['date', 'minutes']) $(id).addEventListener('input', () => { stop(); generation++; requestSoon(); });
-for (const id of ['outsideMean', 'clouds', 'heatLoss', 'floorArea', 'heatingType', 'heatingDemand', 'minimumSolarPowerPerWindowW', 'minMovementIntervalMinutes', 'minPositionChange', 'respectManualPositionUntilEndOfDay', 'enabled', 'disabledToday', 'vacationMode', 'dryRun', 'thermalMode', 'forecastFailure', 'sensorFailure']) $(id).addEventListener('input', requestSoon);
+for (const id of ['outsideMean', 'clouds', 'heatLoss', 'floorArea', 'heatingType', 'heatingDemand', 'minimumSolarPowerPerWindowW', 'minMovementIntervalMinutes', 'allowedPositions', 'respectManualPositionUntilEndOfDay', 'enabled', 'disabledToday', 'vacationMode', 'dryRun', 'thermalMode', 'forecastFailure', 'sensorFailure']) $(id).addEventListener('input', requestSoon);
 $('roomTemperature').addEventListener('input', () => { pendingTemperature = Number($('roomTemperature').value); requestSoon(); });
 $('roomSelect').addEventListener('change', render);
 document.querySelectorAll('[data-scenario]').forEach(button => button.addEventListener('click', () => {
@@ -147,7 +150,7 @@ document.querySelectorAll('[data-scenario]').forEach(button => button.addEventLi
   $('outsideMean').value = outside; $('clouds').value = clouds; $('roomTemperature').value = room; $('date').value = date;
   document.querySelectorAll('[data-scenario]').forEach(b => b.classList.toggle('selected', b === button)); reset(); requestSoon();
 }));
-function loadShadingPreferences() { $('minimumSolarPowerPerWindowW').value = config.global?.minimumSolarPowerPerWindowW ?? config.minimumSolarPowerPerWindowW ?? 0; $('minMovementIntervalMinutes').value = config.global?.minMovementIntervalMinutes ?? config.minMovementIntervalMinutes ?? 15; $('minPositionChange').value = config.global?.minPositionChange ?? config.minPositionChange ?? 10; $('respectManualPositionUntilEndOfDay').checked = config.global?.respectManualPositionUntilEndOfDay ?? config.respectManualPositionUntilEndOfDay ?? false; }
+function loadShadingPreferences() { $('minimumSolarPowerPerWindowW').value = config.global?.minimumSolarPowerPerWindowW ?? config.minimumSolarPowerPerWindowW ?? 0; $('minMovementIntervalMinutes').value = config.global?.minMovementIntervalMinutes ?? config.minMovementIntervalMinutes ?? 15; $('allowedPositions').value = (config.global?.allowedPositions ?? config.allowedPositions ?? [100, 80, 60, 40, 20, 10, 0]).join(', '); $('respectManualPositionUntilEndOfDay').checked = config.global?.respectManualPositionUntilEndOfDay ?? config.respectManualPositionUntilEndOfDay ?? false; }
 $('applyConfig').addEventListener('click', () => { try { config = JSON.parse($('configuration').value); custom = true; $('thermalMode').value = config.thermalMode || 'active'; loadShadingPreferences(); flags = {}; reset(); requestSoon(); } catch (e) { $('error').textContent = e.message; $('error').hidden = false; } });
 $('demoConfig').addEventListener('click', () => { config = structuredClone(baseConfig); custom = false; $('configuration').value = JSON.stringify(config, null, 2); loadShadingPreferences(); flags = {}; reset(); requestSoon(); });
 $('export').addEventListener('click', () => { if (!result) return; const url = URL.createObjectURL(new Blob([JSON.stringify({ config: simulationSettings(), result, log }, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'thermal-blind-simulation.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); });

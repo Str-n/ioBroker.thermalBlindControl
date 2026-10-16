@@ -116,15 +116,23 @@
           "max": 1440,
           "help": "Applies to every automatic position change per blind, including morning and vacation schedules. 60 means at most one automatic move per hour. Thermal positions anticipate the full upcoming interval, including changes in solar exposure and daylight. The last-command timestamp survives restarts."
         },
-        "minPositionChange": {
-          "type": "number",
-          "label": "Minimum automatic position change (percentage points)",
-          "default": 10,
+        "allowedPositions": {
+          "type": "chips",
+          "label": "Allowed automatic positions (% open)",
+          "default": [
+            100,
+            80,
+            60,
+            40,
+            20,
+            10,
+            0
+          ],
           "xs": 12,
-          "sm": 6,
-          "min": 1,
-          "max": 100,
-          "help": "Ignore automatic changes smaller than this absolute position difference. Default: 10 percentage points. Before checking the move size, targets whose position plus this threshold exceeds 100 snap to fully open: with 10, 91 becomes 100 and 90 stays 90. A manual opening ceiling still applies. With 10, 49 to 53 is ignored; 30 to 53 and a change of exactly 10 are allowed. Applies in both directions, including daylight corrections and scheduled moves. Manual controls remain available."
+          "sm": 12,
+          "validator": "Array.isArray(data.allowedPositions) && data.allowedPositions.length >= 2 && data.allowedPositions.every(p => (typeof p === \"number\" || typeof p === \"string\" && p.trim() !== \"\") && Number.isFinite(Number(p)) && Number(p) >= 0 && Number(p) <= 100) && data.allowedPositions.some(p => Number(p) === 0) && data.allowedPositions.some(p => Number(p) === 100)",
+          "validatorErrorText": "Enter percentages from 0 to 100, including 0 and 100.",
+          "help": "Automatic targets round toward the next more open allowed position: 17 becomes 20, 20 stays 20, and 1 becomes 10 with the default list. Include 100 and 0; order does not matter. There is no minimum move size. Applies to thermal control, daylight and schedules. A manual opening ceiling uses the highest allowed position at or below that ceiling. Manual controls can use any position."
         },
         "respectManualPositionUntilEndOfDay": {
           "type": "checkbox",

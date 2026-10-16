@@ -26,8 +26,8 @@
         <p class="muted">Reserve this much unblocked solar power per window, even when the heat budget is exceeded. Limited by available sunlight; 0 disables the minimum.</p>
         <label>Minimum time between automatic moves (min)<input id="minMovementIntervalMinutes" type="number" min="15" max="1440" step="1" value="15"></label>
         <p class="muted">Per blind. Set 60 for at most one automatic position change per hour. Each thermal position anticipates the full upcoming interval of sunlight and daylight needs.</p>
-        <label>Minimum automatic position change (percentage points)<input id="minPositionChange" type="number" min="1" max="100" step="any" value="10"></label>
-        <p class="muted">Targets plus this threshold above 100 snap to fully open: with 10, 91 becomes 100; 90 stays 90. Manual opening limits still apply. Then ignore smaller automatic changes in either direction: 49 → 53 is ignored, while 30 → 53 and changes of exactly 10 are allowed. Also applies to daylight corrections and scheduled moves.</p>
+        <label>Allowed automatic positions (% open)<input id="allowedPositions" type="text" value="100, 80, 60, 40, 20, 10, 0"></label>
+        <p class="muted">Comma-separated percentages, including 100 and 0. Round toward the next more open step: 17 → 20, 20 → 20, 1 → 10. No minimum move size. A manual opening ceiling limits automatic targets to allowed steps at or below that ceiling.</p>
         <label class="toggle"><input id="respectManualPositionUntilEndOfDay" type="checkbox"> Remember manual closing until midnight</label>
         <p class="muted">A manual position below the plan becomes today's maximum opening. Automatic control may close further. A later manual move replaces the limit; manually closing to 0 keeps it closed until tomorrow. The manual pause still applies.</p>
       </fieldset>

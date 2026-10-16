@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { parseConfig, defaults, roomDefaults, windowDefaults, normalizePosition, devicePosition } = require('../build/lib/config');
 const { newGlobal, newWindow, restoreWindow, rollover, observe, beginCommand, decide, completeEvent, manualAction, dailyManualPositionLimit } = require('../build/lib/engine');
 const { localDate, atLocal, nextMidnight, schedule, HOUR, MINUTE } = require('../build/lib/time');
-const c = parseConfig({ ...defaults, enabled: true, dryRun: false, thermalMode: 'active', rooms: [{ ...roomDefaults, id: 'room', temperatureSensorId: 'room.temp' }],
+const c = parseConfig({ ...defaults, enabled: true, dryRun: false, thermalMode: 'active', allowedPositions: Array.from({ length: 101 }, (_, i) => 100 - i), rooms: [{ ...roomDefaults, id: 'room', temperatureSensorId: 'room.temp' }],
     windows: [{ ...windowDefaults, id: 'south', roomId: 'room', positionStateId: 'blind.actual', positionCommandId: 'blind.target' }] });
 const now = Date.parse('2026-07-15T12:00:00+02:00');
 function fixture() {
@@ -48,7 +48,7 @@ test('vacation daytime protection preserves manual preferences, daylight and mov
     i.runtime.manualHoldUntil = 0; i.runtime.lastAutoAt = now - MINUTE;
     assert.equal(decide(i).reason, 'MOVEMENT_COOLDOWN');
     i.runtime.lastAutoAt = 0; i.actualPosition = 25;
-    assert.equal(decide(i).target, null); assert.equal(decide(i).reason, 'NO_CHANGE');
+    assert.equal(decide(i).target, 20); assert.equal(decide(i).reason, 'THERMAL_PROTECTION');
     i.config = { ...c, respectManualPositionUntilEndOfDay: true };
     i.runtime.manualPositionLimit = 0; i.runtime.manualPositionLimitDate = localDate(now, c.timezone);
     i.actualPosition = 0; i.directSun = false;
@@ -299,74 +299,73 @@ test('a 60-minute interval blocks opening and closing until exactly one hour, in
         i.now = now + HOUR; assert.equal(decide(i).target, target);
     }
 });
-test('the daylight floor caps stale targets while respecting the position threshold and movement interval', () => {
-    const i = fixture(); i.minimumThermalPosition = 2; i.actualPosition = 0; i.thermalTarget = 0;
-    assert.equal(decide(i).target, null); assert.equal(decide(i).reason, 'NO_CHANGE');
-    assert.equal(decide(i).calculatedPosition, 2);
+test('the daylight floor rounds upward to an allowed step while respecting movement intervals and manual holds', () => {
+    const i = fixture(); i.config = { ...c, allowedPositions: defaults.allowedPositions };
+    i.minimumThermalPosition = 2; i.actualPosition = 0; i.thermalTarget = 0;
+    assert.equal(decide(i).target, 10); assert.equal(decide(i).reason, 'DAYLIGHT_MINIMUM');
+    assert.equal(decide(i).calculatedPosition, 10);
     i.minimumThermalPosition = 12;
-    assert.equal(decide(i).target, 12); assert.equal(decide(i).reason, 'DAYLIGHT_MINIMUM');
-    i.runtime.lastAutoAt = now; i.config = { ...c, minMovementIntervalMinutes: 60 };
+    assert.equal(decide(i).target, 20); assert.equal(decide(i).reason, 'DAYLIGHT_MINIMUM');
+    i.runtime.lastAutoAt = now; i.config = { ...i.config, minMovementIntervalMinutes: 60 };
     i.now = now + 59 * MINUTE; assert.equal(decide(i).reason, 'MOVEMENT_COOLDOWN');
-    i.now = now + HOUR; assert.equal(decide(i).target, 12);
+    i.now = now + HOUR; assert.equal(decide(i).target, 20);
     i.runtime.manualHoldUntil = i.now + HOUR; assert.equal(decide(i).reason, 'MANUAL_LOCK');
 });
-test('automatic changes use an absolute configurable threshold, including the exact boundary in both directions', () => {
-    assert.equal(c.minPositionChange, 10);
-    for (const [position, target, expected] of [[49, 53, null], [30, 53, 53], [44, 53, null], [43, 53, 53],
-        [53, 49, null], [53, 30, 30], [53, 44, null], [53, 43, 43]]) {
-        const i = fixture(); i.actualPosition = position; i.thermalTarget = target;
-        const snapshot = structuredClone(i.runtime);
-        assert.equal(decide(i).target, expected, `${position} -> ${target}`);
-        assert.deepEqual(i.runtime, snapshot, 'ignored requests must not record movement or restart cooldown');
-    }
-    const i = fixture(); i.actualPosition = 49; i.thermalTarget = 53;
-    i.config = { ...c, minPositionChange: 4 }; assert.equal(decide(i).target, 53);
-    i.config = { ...c, minPositionChange: 5 }; assert.equal(decide(i).target, null);
-    i.config = { ...c, minPositionChange: 1 }; i.thermalTarget = 50;
-    assert.equal(decide(i).target, 50, 'feedback tolerance must not block a change meeting the configured threshold');
-});
-test('near-open automatic targets snap to 100 before checking move size, with a strict configurable boundary', () => {
-    for (const [threshold, planned, actual, calculated, target] of [
-        [10, 91, 70, 100, 100], [10, 93, 89, 100, 100], [10, 91, 100, 100, null],
-        [10, 91, 95, 100, null], [10, 90, 70, 90, 90], [5, 95, 70, 95, 95],
-        [5, 96, 70, 100, 100], [9.5, 90.5, 70, 90.5, 90.5], [9.5, 90.6, 70, 100, 100],
-    ]) {
-        const i = fixture(); i.config = { ...c, minPositionChange: threshold };
-        i.actualPosition = actual; i.thermalTarget = planned;
+test('automatic decisions round toward the next more open allowed step, including exact boundaries', () => {
+    for (const [requested, expected] of [[0, 0], [1, 10], [10, 10], [10.001, 20], [17, 20], [20, 20],
+        [20.001, 40], [39.9, 40], [40, 40], [53, 60], [80, 80], [80.001, 100], [91, 100], [100, 100]]) {
+        const i = fixture(); i.config = { ...c, allowedPositions: defaults.allowedPositions };
+        i.actualPosition = expected === 100 ? 0 : 100; i.thermalTarget = requested;
         const decision = decide(i);
-        assert.equal(decision.calculatedPosition, calculated, `plan ${planned}, threshold ${threshold}`);
-        assert.equal(decision.target, target, `actual ${actual}, plan ${planned}, threshold ${threshold}`);
+        assert.equal(decision.calculatedPosition, expected, `requested ${requested}`);
+        assert.equal(decision.target, expected, `requested ${requested}`);
     }
-    const i = fixture(); i.actualPosition = 70; i.thermalTarget = 91;
-    i.config = { ...c, minMovementIntervalMinutes: 60 }; i.runtime.lastAutoAt = now;
-    i.now = now + 59 * MINUTE; assert.equal(decide(i).reason, 'MOVEMENT_COOLDOWN');
-    i.now = now + HOUR; assert.equal(decide(i).target, 100);
+    const i = fixture(); i.config = parseConfig({ ...c, allowedPositions: [0, 37.5, 65, 100] });
+    i.thermalTarget = 20; assert.equal(decide(i).target, 37.5);
+    i.thermalTarget = 37.5; assert.equal(decide(i).target, 37.5);
+    i.thermalTarget = 37.6; assert.equal(decide(i).target, 65);
 });
-test('near-open snapping never exceeds a remembered manual opening ceiling', () => {
-    for (const ceiling of [0, 25, 90, 95]) {
-        const i = fixture(); i.config = { ...c, respectManualPositionUntilEndOfDay: true };
+test('there is no minimum move size in either direction and matching targets do not start a cooldown', () => {
+    for (const [actual, requested, expected] of [[16, 17, 20], [14, 17, 20], [9, 17, 20], [19, 20, 20],
+        [21, 20, 20], [11, 10, 10], [1, 0, 0], [99, 100, 100], [20, 17, null], [19.999999, 20, 20]]) {
+        const i = fixture(); i.config = { ...c, allowedPositions: defaults.allowedPositions };
+        i.actualPosition = actual; i.thermalTarget = requested;
+        const before = structuredClone(i.runtime);
+        assert.equal(decide(i).target, expected, `${actual} -> requested ${requested}`);
+        assert.deepEqual(i.runtime, before, 'a decision alone must not record a command or change the cooldown');
+    }
+    const i = fixture(); i.config = { ...c, allowedPositions: defaults.allowedPositions };
+    i.thermalTarget = 20;
+    i.actualPosition = normalizePosition(0.8, { ...c.windows[0], deviceOpenValue: 0, deviceClosedValue: 1 });
+    assert.equal(decide(i).target, null, 'floating-point conversion of an already matching device value must not repeat a command');
+});
+test('allowed steps never exceed a remembered manual ceiling between configured positions', () => {
+    for (const [ceiling, expected] of [[0, 0], [1, 0], [9, 0], [10, 10], [25, 20], [35, 20], [90, 80], [95, 80]]) {
+        const i = fixture(); i.config = { ...c, allowedPositions: defaults.allowedPositions, respectManualPositionUntilEndOfDay: true };
         i.actualPosition = 0; i.thermalTarget = 91;
         i.runtime.manualPositionLimit = ceiling; i.runtime.manualPositionLimitDate = localDate(now, c.timezone);
         const decision = decide(i);
-        assert.equal(decision.calculatedPosition, ceiling);
-        assert.equal(decision.target, ceiling === 0 ? null : ceiling);
+        assert.equal(decision.calculatedPosition, expected);
+        assert.equal(decision.target, expected === 0 ? null : expected);
         assert.equal(decision.reason, 'MANUAL_POSITION_LIMIT');
+        assert.equal(i.runtime.manualPositionLimit, ceiling, 'rounding must not overwrite the remembered manual preference');
     }
 });
-test('morning, vacation and no-direct-sun openings also obey the configured position threshold', () => {
+test('morning, vacation and no-direct-sun schedules perform even one-point changes to allowed endpoints', () => {
     for (const mode of ['morning', 'vacationMorning', 'vacationEvening', 'noSun']) {
         const i = fixture(), closing = mode === 'vacationEvening';
-        i.actualPosition = closing ? 4 : 96;
+        i.config = { ...c, allowedPositions: defaults.allowedPositions };
+        i.actualPosition = closing ? 1 : 99;
         if (mode === 'noSun') i.directSun = false;
         else {
             i.global.vacationMode = mode !== 'morning'; i.runtime.participatingToday = false;
             i.thermalTarget = 100;
             i.now = schedule(now, c)[closing ? 'evening' : 'morning'];
         }
+        assert.equal(decide(i).target, closing ? 0 : 100, mode);
+        i.actualPosition = closing ? 0 : 100;
         assert.equal(decide(i).target, null, mode);
         assert.equal(decide(i).reason, 'NO_CHANGE', mode);
-        i.actualPosition = closing ? 10 : 90;
-        assert.equal(decide(i).target, closing ? 0 : 100, `${mode} at exact threshold`);
     }
 });
 test('invalid forecasts, positions, sensors, dry-run, shadow mode and startup block thermal movement', () => {

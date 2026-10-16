@@ -1,6 +1,6 @@
 import { Adapter, type AdapterOptions } from '@iobroker/adapter-core';
 import { randomUUID } from 'node:crypto';
-import { parseConfig, migrateLegacyHeatingConfig, normalizePosition, devicePosition, type Config, type RoomConfig, type WindowConfig } from './lib/config';
+import { parseConfig, migrateLegacyConfig, normalizePosition, devicePosition, type Config, type RoomConfig, type WindowConfig } from './lib/config';
 import { beginCommand, completeEvent, dailyManualPositionLimit, decide, newGlobal, newWindow, observe, positionForForecast, restoreWindow, rollover, type GlobalRuntime, type PositionEvent, type WindowRuntime } from './lib/engine';
 import { minimumThermalPosition, newRoomRuntime, optimizeRoom, updateHeating, type HeatingObservation, type RoomRuntime, type ThermalResult } from './lib/thermal';
 import { directIrradiance, fetchForecast, forecastGrid, freshNumber, hasDirectSun, orientationKey, type Forecast, type Sample } from './lib/weather';
@@ -94,20 +94,20 @@ export class ThermalBlindControl extends Adapter {
     private async saveWindow(id: string): Promise<void> { await this.setStateAsync(`windows.${id}.runtime`, JSON.stringify(this.windows.get(id)), true); }
     private async ready(): Promise<void> {
         let native: Record<string, any>;
-        try { native = migrateLegacyHeatingConfig(this.config); this.settings = parseConfig(native); }
+        try { native = migrateLegacyConfig(this.config); this.settings = parseConfig(native); }
         catch (error) { this.log.error(`Invalid configuration; control remains inactive: ${error}`); return; }
         if (native !== this.config) {
             try {
                 const id = `system.adapter.${this.namespace}`, instance = await this.getForeignObjectAsync(id);
                 if (!instance || instance.type !== 'instance') throw new Error('Adapter instance object unavailable');
                 // Re-read before migrating so unrelated recent Admin changes are preserved.
-                const migrated = migrateLegacyHeatingConfig(instance.native);
+                const migrated = migrateLegacyConfig(instance.native);
                 this.settings = parseConfig(migrated);
                 if (migrated !== instance.native) {
                     await this.setForeignObjectAsync(id, { ...instance, native: migrated });
-                    this.log.info('Migrated dotted heating settings to nested objects; saved GUI edits take precedence.');
+                    this.log.info('Migrated legacy settings: nested heating values and allowed automatic positions.');
                 }
-            } catch (error) { this.log.error(`Cannot migrate heating settings; control remains inactive: ${error}`); return; }
+            } catch (error) { this.log.error(`Cannot migrate configuration; control remains inactive: ${error}`); return; }
             if (this.stopped) return;
         }
         const c = this.settings, now = Date.now(); this.startedAt = now;

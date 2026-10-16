@@ -140,8 +140,9 @@ export function decide(input: DecisionInput): Decision {
     const { config: c, global: g, runtime: r, now, actualPosition: position } = input;
     // Recheck at execution time: a cached thermal target must never close a facade after the sun has left it.
     const minimumPosition = input.minimumThermalPosition ?? 0;
-    const ceiling = dailyManualPositionLimit(r, c, now);
-    const thermalTarget = input.thermalTarget === null ? null : automaticPosition(input.directSun ? Math.max(input.thermalTarget, minimumPosition) : 100, c.minPositionChange, ceiling ?? 100);
+    const manualCeiling = dailyManualPositionLimit(r, c, now);
+    const ceiling = manualCeiling === null ? null : automaticPosition(100, c.allowedPositions, manualCeiling);
+    const thermalTarget = input.thermalTarget === null ? null : automaticPosition(input.directSun ? Math.max(input.thermalTarget, minimumPosition) : 100, c.allowedPositions, ceiling ?? 100);
     const result = (reason: string, target: number | null = null, event?: Decision['event']): Decision => ({ reason, target, event, calculatedPosition: thermalTarget });
     if (!g.enabled) return result('SYSTEM_DISABLED');
     if (g.disabledToday) return result('DISABLED_TODAY');
@@ -178,8 +179,10 @@ export function decide(input: DecisionInput): Decision {
         daylightOpening = input.directSun && position < minimumPosition && target > position;
         reason = daylightOpening ? 'DAYLIGHT_MINIMUM' : !input.directSun ? 'NO_DIRECT_SUN' : target < position ? 'THERMAL_PROTECTION' : 'SOLAR_GAIN';
     }
+    target = automaticPosition(target, c.allowedPositions, ceiling ?? 100);
     if (ceiling !== null && target >= ceiling) { target = ceiling; reason = 'MANUAL_POSITION_LIMIT'; }
-    if (Math.abs(target - position) < c.minPositionChange) return result(reason === 'MANUAL_POSITION_LIMIT' ? reason : 'NO_CHANGE', null, event);
+    // Device endpoint conversion can differ by a floating-point rounding error.
+    if (Math.abs(target - position) <= 100 * Number.EPSILON) return result(reason === 'MANUAL_POSITION_LIMIT' ? reason : 'NO_CHANGE', null, event);
     if (r.ownCommand && !r.ownCommand.completed && now < r.ownCommand.expiresAt) return result('MOVING');
     if (r.lastAutoAt && now - r.lastAutoAt < c.minMovementIntervalMinutes * MINUTE) return result('MOVEMENT_COOLDOWN');
     if (g.dryRun) return result('DRY_RUN', null);

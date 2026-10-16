@@ -146,12 +146,12 @@ test('simulator remembers manual closing, replaces it with manual opening, and c
     r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + MINUTE, runtime: r.runtime, manualChanges: { north: 25 } });
     assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimit, 25);
     r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + 61 * MINUTE, runtime: r.runtime });
-    assert.equal(r.windows.find(w => w.id === 'north').position, 25);
+    assert.equal(r.windows.find(w => w.id === 'north').position, 20);
     assert.equal(r.windows.find(w => w.id === 'north').reason, 'MANUAL_POSITION_LIMIT');
     r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + MINUTE, runtime: r.runtime, manualChanges: { north: 90 } });
     assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimit, 90);
     r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + 61 * MINUTE, runtime: r.runtime });
-    assert.equal(r.windows.find(w => w.id === 'north').position, 90);
+    assert.equal(r.windows.find(w => w.id === 'north').position, 80);
     r = simulate({ config, scenario: 'winter', minutes: 23 * 60 + 45 });
     r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + MINUTE, runtime: r.runtime, manualChanges: { north: 0 } });
     assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimit, 0);

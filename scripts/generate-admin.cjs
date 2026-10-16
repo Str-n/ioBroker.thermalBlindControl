@@ -16,7 +16,7 @@ const labels = {
   setpointId: 'Read-only heating setpoint state', demandId: 'Read-only heating demand state', valvePositionId: 'Read-only valve position state (%)', type: 'Heating system',
   flowTemperatureId: 'Read-only central supply temperature (°C)', returnTemperatureId: 'Read-only central return temperature (°C)',
   minimumSolarPowerPerWindowW: 'Minimum daylight per window (W)', minMovementIntervalMinutes: 'Minimum time between automatic moves per blind (minutes)',
-  minPositionChange: 'Minimum automatic position change (percentage points)',
+  allowedPositions: 'Allowed automatic positions (% open)',
   respectManualPositionUntilEndOfDay: 'Keep manual closing as the maximum opening until midnight',
 };
 const enums = { thermalMode: ['off', 'shadow', 'active'], construction: ['veryLight', 'light', 'medium', 'heavy', 'veryHeavy'], type: ['none', 'radiator', 'underfloor'] };
@@ -28,7 +28,10 @@ function field(key, value, attr = key) {
   if (key === 'autoMorningOpen') result.help = 'Normal mode only. If off, wait for a confirmed external opening before starting thermal control for this blind today. Vacation mode ignores this flag and runs its morning schedule and daytime thermal protection.';
   if (key === 'minimumSolarPowerPerWindowW') Object.assign(result, { min: 0, max: 10000, help: 'Reserve this much estimated unblocked solar power per window, even when the heat budget is exceeded. Limited by available sunlight. Zero disables the daylight minimum.' });
   if (key === 'minMovementIntervalMinutes') Object.assign(result, { min: 15, max: 1440, help: 'Applies to every automatic position change per blind, including morning and vacation schedules. 60 means at most one automatic move per hour. Thermal positions anticipate the full upcoming interval, including changes in solar exposure and daylight. The last-command timestamp survives restarts.' });
-  if (key === 'minPositionChange') Object.assign(result, { min: 1, max: 100, help: 'Ignore automatic changes smaller than this absolute position difference. Default: 10 percentage points. Before checking the move size, targets whose position plus this threshold exceeds 100 snap to fully open: with 10, 91 becomes 100 and 90 stays 90. A manual opening ceiling still applies. With 10, 49 to 53 is ignored; 30 to 53 and a change of exactly 10 are allowed. Applies in both directions, including daylight corrections and scheduled moves. Manual controls remain available.' });
+  if (key === 'allowedPositions') Object.assign(result, { type: 'chips', sm: 12,
+    validator: 'Array.isArray(data.allowedPositions) && data.allowedPositions.length >= 2 && data.allowedPositions.every(p => (typeof p === "number" || typeof p === "string" && p.trim() !== "") && Number.isFinite(Number(p)) && Number(p) >= 0 && Number(p) <= 100) && data.allowedPositions.some(p => Number(p) === 0) && data.allowedPositions.some(p => Number(p) === 100)',
+    validatorErrorText: 'Enter percentages from 0 to 100, including 0 and 100.',
+    help: 'Automatic targets round toward the next more open allowed position: 17 becomes 20, 20 stays 20, and 1 becomes 10 with the default list. Include 100 and 0; order does not matter. There is no minimum move size. Applies to thermal control, daylight and schedules. A manual opening ceiling uses the highest allowed position at or below that ceiling. Manual controls can use any position.' });
   if (key === 'respectManualPositionUntilEndOfDay') result.help = 'Optional, off by default. If a confirmed manual position is below the plan, remember it as the maximum opening for this blind until local midnight. Fully closing to 0 always establishes the limit. Automatic control can close further and reopen only up to this level. Any later manual move replaces an existing limit, including opening to 90 or 100. This overrides automatic daylight and scheduled opening; the timed manual pause and movement limits still apply. Survives restarts.';
   return { attr, ...result };
 }
@@ -36,7 +39,7 @@ function fields(keys, source = defaults) { return Object.fromEntries(keys.map(ke
 function panel(label, items) { return { type: 'panel', label, items }; }
 const config = { type: 'tabs', i18n: false, items: {
   _General: panel('General', { _help: { type: 'staticText', text: 'Runtime switches under global.* and windows.* persist across restarts. Initial switches below are used only when their states are created. Start with dry run and shadow mode; active thermal control additionally requires global.dryRun=false and global.enabled=true. Only blind command IDs are written.', sm: 12 },
-    ...fields(['enabled', 'dryRun', 'thermalMode', 'disabledToday', 'vacationMode', 'latitude', 'longitude', 'timezone', 'startupDelaySeconds', 'optimizationIntervalMinutes', 'minimumSolarPowerPerWindowW', 'minMovementIntervalMinutes', 'minPositionChange', 'respectManualPositionUntilEndOfDay']) }),
+    ...fields(['enabled', 'dryRun', 'thermalMode', 'disabledToday', 'vacationMode', 'latitude', 'longitude', 'timezone', 'startupDelaySeconds', 'optimizationIntervalMinutes', 'minimumSolarPowerPerWindowW', 'minMovementIntervalMinutes', 'allowedPositions', 'respectManualPositionUntilEndOfDay']) }),
   _Rooms: panel('Rooms & heating', { rooms: { type: 'accordion', titleAttr: 'name', noDelete: false, sm: 12,
     // Accordion edits use literal keys even though controls read nested paths.
     // Repair its own array in place before Admin renders, exports or saves it.
