@@ -27,6 +27,7 @@ export interface Config {
     sensorMaxAgeMinutes: number; positionMaxAgeMinutes: number; startupDelaySeconds: number;
     manualOverrideMinutes: number; minMovementIntervalMinutes: number; minPositionChange: number; positionTolerance: number;
     minimumSolarPowerPerWindowW: number;
+    respectManualPositionUntilEndOfDay: boolean;
     firstOpenPercent: number; morningEarliest: string; morningLatest: string; morningOffsetMinutes: number;
     eveningEarliest: string; eveningLatest: string; eveningOffsetMinutes: number; scheduleCatchUpMinutes: number;
     toleranceMaxC: number; toleranceStartK: number; toleranceFullK: number; limitSmoothingMinutes: number;
@@ -47,6 +48,7 @@ export const defaults: Config = {
     sensorMaxAgeMinutes: 180, positionMaxAgeMinutes: 10080, startupDelaySeconds: 30,
     manualOverrideMinutes: 60, minMovementIntervalMinutes: 15, minPositionChange: 10, positionTolerance: 3,
     minimumSolarPowerPerWindowW: 0,
+    respectManualPositionUntilEndOfDay: false,
     firstOpenPercent: 90, morningEarliest: '07:00', morningLatest: '10:00', morningOffsetMinutes: 0,
     eveningEarliest: '17:00', eveningLatest: '22:00', eveningOffsetMinutes: 0, scheduleCatchUpMinutes: 60,
     toleranceMaxC: 4, toleranceStartK: 1, toleranceFullK: 8, limitSmoothingMinutes: 60,
@@ -70,11 +72,38 @@ function stateId(v: unknown, name: string, required = false): string {
     if (typeof v !== 'string' || (required && !v.trim()) || /[\s*]/.test(v)) throw new Error(`Invalid ${name}`);
     return v;
 }
+// Kept self-contained so the Admin generator can use the same normalization in
+// its accordion callback. Mutate the row there so rendering and export agree.
+export function normalizeDottedFields(data: Record<string, any>, property: string, keys: readonly string[]): boolean {
+    let changed = false;
+    for (const key of keys) {
+        const attr = `${property}.${key}`;
+        if (!Object.prototype.hasOwnProperty.call(data, attr)) continue;
+        if (!changed) data[property] = { ...data[property] };
+        data[property][key] = data[attr];
+        delete data[attr];
+        changed = true;
+    }
+    return changed;
+}
+export function migrateLegacyHeatingConfig(raw: unknown): Record<string, any> {
+    const original = object(raw), input = { ...original };
+    let changed = normalizeDottedFields(input, 'centralHeating', Object.keys(defaults.centralHeating));
+    if (Array.isArray(input.rooms)) {
+        input.rooms = input.rooms.map(value => {
+            const room = { ...object(value) };
+            if (!normalizeDottedFields(room, 'heating', Object.keys(heatingDefaults))) return value;
+            changed = true;
+            return room;
+        });
+    }
+    return changed ? input : original;
+}
 export function parseConfig(raw: unknown): Config {
-    const input = object(raw);
+    const input = migrateLegacyHeatingConfig(raw);
     const c: Config = { ...structuredClone(defaults), ...input, ...(input.global ? object(input.global) : {}),
         centralHeating: { ...defaults.centralHeating, ...input.centralHeating } };
-    for (const key of ['enabled', 'disabledToday', 'vacationMode', 'dryRun'] as const)
+    for (const key of ['enabled', 'disabledToday', 'vacationMode', 'dryRun', 'respectManualPositionUntilEndOfDay'] as const)
         if (typeof c[key] !== 'boolean') throw new Error(`${key} must be boolean`);
     if (!['off', 'shadow', 'active'].includes(c.thermalMode)) throw new Error('Invalid thermalMode');
     new Intl.DateTimeFormat('en', { timeZone: c.timezone }).format();
@@ -137,4 +166,8 @@ export function normalizePosition(value: unknown, w: WindowConfig): number | nul
 }
 export function devicePosition(openness: number, w: WindowConfig): number {
     return w.deviceClosedValue + openness / 100 * (w.deviceOpenValue - w.deviceClosedValue);
+}
+export function automaticPosition(target: number, minPositionChange: number, maximumPosition = 100): number {
+    // Snap near-open plans before checking the actual move size. A manual ceiling retains priority.
+    return Math.min(maximumPosition, target + minPositionChange > 100 ? 100 : target);
 }

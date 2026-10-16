@@ -47,6 +47,8 @@ Weather is **synthetic**, not live Open-Meteo data. The synthetic facade irradia
 4. The adapter starts **disabled**, in **shadow mode**, with **dry run enabled**. Set `global.enabled=true` and inspect diagnostics. Set `thermalMode=active` in Admin when ready to evaluate active thermal control. Only `global.dryRun=false` allows real commands, including scheduled morning/vacation movements.
 5. Use the runtime states below for normal operation. Saving Admin settings or restarting preserves existing runtime switch choices; the Admin switch values are initialization defaults.
 
+Room heating edits are saved inside each room's `heating` object. Older Admin configurations containing literal keys such as `"heating.nominalPowerW"` are repaired on adapter startup: the dotted GUI value takes precedence over the stale nested value, then the duplicate key is removed. Existing JSON imports receive the same normalization. After updating, restart the instance and reopen its settings to load the repaired values.
+
 Do not enable both adapters for the same motor at once. Their commands would be external actions to each other. Real actuator travel limits and obstacle protection remain the device's responsibility.
 
 ### Position convention
@@ -74,7 +76,8 @@ These settings are in the Admin **General** tab and the simulator's **Daylight &
 | --- | ---: | --- |
 | `minimumSolarPowerPerWindowW` | 0 W | Reserve at least this much estimated solar power through each window's uncovered glazing, even when the heat budget or comfort target is exceeded. Range: 0–10,000 W. Zero disables the minimum. |
 | `minMovementIntervalMinutes` | 15 min | Minimum time between any two automatic position changes of the same blind. Range: 15–1,440 minutes. Set 60 for at most one automatic move per hour. |
-| `minPositionChange` | 10 percentage points | Minimum absolute difference between the actual and requested position for any automatic move, in either direction. Range: 1–100. Smaller changes are ignored; an exact match to the threshold is allowed. |
+| `minPositionChange` | 10 percentage points | Minimum absolute difference between the actual and requested position for any automatic move, in either direction. Range: 1–100. Targets whose position plus this threshold exceeds 100 snap to fully open first. Smaller moves are ignored; an exact match to the threshold is allowed. |
+| `respectManualPositionUntilEndOfDay` | `false` | Remember a manual position below the plan as that blind's maximum automatic opening until building-local midnight. Further manual moves replace the remembered level. |
 
 For example, add these settings to the native configuration:
 
@@ -82,7 +85,8 @@ For example, add these settings to the native configuration:
 {
   "minimumSolarPowerPerWindowW": 20,
   "minMovementIntervalMinutes": 60,
-  "minPositionChange": 10
+  "minPositionChange": 10,
+  "respectManualPositionUntilEndOfDay": true
 }
 ```
 
@@ -90,7 +94,15 @@ The watt allowance is **per window**, rather than shared between windows. It is 
 
 The movement interval is also the **position-planning horizon**. With 60 minutes configured, the planner examines the full next hour of facade irradiance, including the expected sun direction, and chooses a position for that entire hold. Weak sun now followed by strong sun in 30 minutes therefore causes preventive shading now. A falling light forecast can require a more-open position now to preserve the daylight minimum later in the hour. The resulting held positions are checked against the full 24-hour RC temperature trajectory and heat budget. The durable last-command timestamp prevents restarting the adapter from resetting the interval. Manual operation remains available.
 
-The position threshold uses **percentage points**, independently of the movement interval and motor feedback tolerance. With `minPositionChange: 10`, 89 → 93 is ignored (4 points), 70 → 93 is performed (23 points), and 83 → 93 is performed (exactly 10 points), subject to the other operating permissions. The same rule applies to closing, daylight corrections, reopening after direct sun ends, and morning/vacation schedules. The forecast retains the actual position for ignored changes, and ignoring a change does not start a movement cooldown. Manual operation is unaffected. A daylight correction smaller than the threshold remains pending until a sufficiently large move is required.
+The position threshold uses **percentage points**, independently of the movement interval and motor feedback tolerance. Before checking the move size, an automatic target becomes **100% open** when `target + minPositionChange > 100`. With `minPositionChange: 10`, a target of 91% becomes 100%; a target of exactly 90% remains 90%. This also prevents closing an already open blind to 91–99%. A remembered manual opening ceiling still caps the result, and the forecast includes the snapped positions in its heat balance.
+
+The minimum move size is then checked against the actual position. With `minPositionChange: 10`, 49 → 53 is ignored (4 points), 30 → 53 is performed (23 points), and 43 → 53 is performed (exactly 10 points), subject to the other operating permissions. An actual position of 89% with a planned target of 93% moves to the snapped target of 100% (11 points); an actual position of 95% with the same plan remains unchanged because the move to 100% would be only 5 points. The same rule applies to closing, daylight corrections, reopening after direct sun ends, and morning/vacation schedules. The forecast retains the actual position for ignored changes, and ignoring a change does not start a movement cooldown. Manual operation is unaffected. A daylight correction smaller than the threshold remains pending until a sufficiently large move is required.
+
+When `respectManualPositionUntilEndOfDay` is enabled, a **confirmed manual position below the latest plan before the manual pause** becomes a window-local opening ceiling for the rest of the calendar day. If the plan was 50% and the user chooses 25%, automatic control can later close to 0%, then reopen to at most 25% when a new plan requests 75%. A later manual opening to 90% replaces the ceiling with 90%, even if that is above the current plan. Manually choosing 100% removes any practical opening restriction. A first manual move at or above the plan does not establish a ceiling; an explicit manual closing to 0% always does, including when the plan is unavailable or already 0%.
+
+The existing manual pause of at least 60 minutes still comes first. After that pause, the minimum movement interval and change threshold still apply. The daily ceiling overrides automatic daylight reopening, reopening after direct sun ends and scheduled openings. Consequently, a manual 0% ceiling keeps the blind closed until the next day. Automatic movement and periodic feedback never replace the remembered manual preference. Unacknowledged requested targets alone do not establish the ceiling; confirmed motor feedback does.
+
+The remembered ceiling and latest plan survive adapter restarts. The ceiling expires at **local midnight**, including on daylight-saving transition days; the next day's normal schedule can open the blind again. Midnight itself does not cause a move. Disabling the option clears remembered ceilings when configuration is reloaded. The room forecast respects each ceiling and its midnight expiry, including the effect on admitted heat. The all-open comparison remains hypothetical. The simulator exposes the same option and shows each active maximum opening on its window card.
 
 ### Runtime states
 
@@ -100,7 +112,7 @@ All IDs below are relative to `thermalblindcontrol.0`.
 | --- | --- |
 | `global.enabled` | Persistent master enable, writable boolean |
 | `global.disabledToday` | Disable until the next building-local midnight, writable boolean |
-| `global.vacationMode` | Persistent vacation schedule, writable boolean |
+| `global.vacationMode` | Persistent vacation schedules and daytime thermal protection, writable boolean |
 | `global.dryRun` | Suppress every motor command while publishing diagnostics, writable boolean |
 | `global.operatingMode` | Current global mode |
 | `global.forecastValid`, `lastForecastUpdate`, `forecastError` | Forecast coverage, age and refresh failure |
@@ -108,6 +120,7 @@ All IDs below are relative to `thermalblindcontrol.0`.
 | `windows.<id>.enabled`, `autoMorningOpen` | Persistent per-window writable flags |
 | `windows.<id>.participatingToday` | Today's normal thermal enrollment |
 | `windows.<id>.manualOverrideActive`, `manualHoldUntil` | Manual hold and expiry |
+| `windows.<id>.manualPositionLimit`, `manualPositionLimitActive` | Remembered maximum openness for today (`null` when inactive) and its activation flag; both read-only |
 | `windows.<id>.actualPosition`, `calculatedPosition` | Percent open: 100 = open, 0 = closed; unavailable values are `null` |
 | `windows.<id>.directSun`, `directIrradiance` | Current direct-sun eligibility and projected facade direct irradiance (W/m²) |
 | `windows.<id>.controlReason`, `commandError` | Movement or blocking reason and last delivery error |
@@ -127,18 +140,20 @@ All IDs below are relative to `thermalblindcontrol.0`.
 
 ## Operating behavior
 
-Priority is master disable → disabled today → manual hold → vacation → individual enable → daily participation → thermal control. Dry run additionally prevents every real motor command.
+Master disable, disabled today and manual holds guard all automatic control. Vacation mode runs morning/evening schedules and daytime thermal protection regardless of individual enable, morning-opening or daily participation flags. Normal mode requires individual enable and daily participation for thermal control. Dry run additionally prevents every real motor command.
 
 - **Manual actions:** foreign target writes, unexplained position changes, reversals and unassigned moving signals start a window-local hold of at least 60 minutes. Further changes extend it. A confirmed foreign opening of at least 90% enrolls that window for the day; merely being open at startup or requesting an open target does not. The manual hold still applies after enrollment, including in vacation mode.
+- **Optional daily manual ceiling:** `respectManualPositionUntilEndOfDay` preserves a user's more-closed choice until local midnight. Later manual movements replace the ceiling; automatic movements leave it intact. `MANUAL_POSITION_LIMIT` identifies a target constrained by this preference.
 - **Own movement:** persisted identity, source, target, timestamp, monotonic intermediate feedback and travel timeout distinguish expected feedback from manual actions. `ack` alone is not used as proof. An explicit unacknowledged command from another source is manual even if its target matches. Identical acknowledged target echoes inside an outstanding command's recognition interval cannot always be distinguished; use separate actual/target states when the device supports them.
+- **Windows sharing a room:** matching sunlit windows share a proportional shading target. Expected feedback from one blind preserves the pending commands for its siblings. During an unfinished own movement, forecasts use its committed destination; actual-position diagnostics continue to show measured feedback. When the travel timeout expires, the next evaluation drops that assumption and recalculates using observed positions. Each blind still respects its own participation, manual holds, opening ceiling, movement interval and minimum change, so existing small position differences may remain until a sufficiently large move is needed.
 - **Morning:** enabled opted-in windows open once within the morning event window. A successful command or an already-open blind marks participation. Thermal shading follows in a later evaluation, subject to the movement cooldown, so the two routines cannot issue opposite movements in one cycle.
 - **Opted-out morning:** no normal commands before a confirmed external daily opening. Setting `autoMorningOpen=false` does not revoke participation already earned today.
-- **Vacation:** all configured windows open in the morning and close in the evening regardless of window flags, with global/daily/manual guards preserved. Forecast and room-temperature availability are not required. Actual position still must be valid.
-- **Schedules:** sunrise/sunset plus offsets are clamped to morning 07:00–10:00 and evening 17:00–22:00 by default. If the sun event is unavailable, the latest bound is used. Events retry for 60 minutes, subject to holds. Switching vacation mode does not replay events scheduled before the switch. Expired events are skipped. Missed morning enrollment waits for external opening or the next morning.
+- **Vacation:** all configured windows follow daytime thermal control even when `autoMorningOpen=false`, the individual `enabled` flag is false, or normal daily participation has not been earned. Morning and evening schedules remain active. The morning move uses the thermal target when active control and valid model data are available, avoiding full opening for a whole movement interval when shading is already needed; otherwise it requests 100% open. Evening closing requests 0%. Forecast and room-temperature availability are required for thermal protection, and `thermalMode=off` or `shadow` retains its normal meaning. The schedules remain available without model data. Global/daily disables, manual holds, daily manual opening ceilings and all movement guards still apply. Actual position must be valid. Vacation operation does not enroll a blind for normal mode.
+- **Schedules:** sunrise/sunset plus offsets are clamped to morning 07:00–10:00 and evening 17:00–22:00 by default. If the sun event is unavailable, the latest bound is used. Events retry for 60 minutes, subject to holds. Switching vacation mode does not replay scheduled events from before the switch; daytime thermal control can start immediately. Expired events are skipped. In normal mode, missed morning enrollment waits for external opening or the next morning.
 - **Normal evenings:** V1 does not automatically close blinds at night. Normal thermal movements are confined to the interval between the configured morning/evening events; positions are held outside it. Daily reset itself never causes a motor command.
 - **Motion limits:** `minMovementIntervalMinutes` between automatic commands and at least `minPositionChange` percentage points per automatic change (default 10). Both apply to thermal, daylight and scheduled moves. Motor feedback tolerance only recognizes device feedback; it does not override the position threshold. Travel in progress blocks additional movement.
 - **Restart:** restores control flags, dated daily disable, participation, manual holds, heating residual estimate and command identity; checks for observable offline position changes and waits 30 seconds before considering motor commands. No initial enrollment is inferred from a static open snapshot.
-- **Command races:** input revisions invalidate pending commands after awaited database writes. Command intent is saved before hardware writes. A failed delivery keeps the cooldown because the motor might have received it; a diagnostic error is published. The next eligible evaluation computes a fresh decision.
+- **Command races:** manual actions and changed inputs invalidate pending commands after awaited database writes. Recognized own target echoes and motor feedback preserve the room's shared decision. Feedback bursts are checked in receive order so a reversal still cancels stale commands even before queued state processing catches up. Command intent is saved before hardware writes. A failed delivery keeps the cooldown because the motor might have received it; a diagnostic error is published. The next eligible evaluation computes a fresh decision.
 
 ## Thermal and forecast model
 
@@ -162,7 +177,7 @@ The requested profile is approximately `admittedPower(t) = min(availablePower(t)
 
 The planner applies only the first step and recalculates every 15 minutes or after relevant input changes. It is a forecast-based heuristic; thermal limits, changes in facade exposure, discrete movement guards and manual operation can prevent a perfectly flat power curve. The old beam-search weighting settings (`temperatureWeight`, `blockedSolarWeight`, `movementWeight`) are no longer used or offered in Admin; saved copies are harmless and ignored.
 
-`solarAllowed24h` reports the selected plan's admitted solar energy; it does not promise the comfort target is achievable. Negative budgets or a too-hot starting room may make overheating unavoidable even with complete shading. The all-open reference is hypothetical and can disregard operating locks. The planned trajectory can also be blocked by global controls, shadow mode or vacation; it is a model diagnostic, not a record of executed commands.
+`solarAllowed24h` reports the selected plan's admitted solar energy; it does not promise the comfort target is achievable. Negative budgets or a too-hot starting room may make overheating unavoidable even with complete shading. The all-open reference is hypothetical and can disregard operating locks. The planned trajectory can also be blocked by global controls, shadow mode or schedule hours; it is a model diagnostic, not a record of executed commands.
 
 Radiator power is an uncertain estimate using configured nominal power, a nonlinear valve factor, central water-temperature level and assumed existing thermostat response. It decreases as solar heat raises room temperature. Missing demand/valve evidence does not invent an always-on heat source. Underfloor heating uses a first-order residual source whose warmth decays after demand turns off. Across long observation outages, stored residual heat decays rather than assuming unobserved continuous input. Neither valve position nor central water temperature is treated as measured room watts.
 

@@ -1,13 +1,13 @@
 import { defaults, parseConfig, roomDefaults, windowDefaults, type Config } from './config';
-import { beginCommand, completeEvent, decide, manualAction, newGlobal, newWindow, observe, restoreWindow, rollover, type GlobalRuntime, type WindowRuntime } from './engine';
+import { beginCommand, completeEvent, dailyManualPositionLimit, decide, manualAction, newGlobal, newWindow, observe, positionForForecast, restoreWindow, rollover, type GlobalRuntime, type WindowRuntime } from './engine';
 import { capacity, minimumThermalPosition, newRoomRuntime, optimizeRoom, rcStep, transmission, updateHeating, type HeatingObservation, type RoomRuntime, type ThermalResult } from './thermal';
 import { directIrradiance, forecastGrid, hasDirectSun, orientationKey, type Forecast } from './weather';
-import { atLocal, clamp, HOUR, localParts, MINUTE, schedule, solarPosition } from './time';
+import { atLocal, clamp, HOUR, localParts, MINUTE, nextMidnight, schedule, solarPosition } from './time';
 
 export const demoConfig: Config = parseConfig({ ...defaults, enabled: true, dryRun: false, thermalMode: 'active', startupDelaySeconds: 0,
     rooms: [{ ...roomDefaults, id: 'living', name: 'Living room', temperatureSensorId: 'sim.living.temperature' }],
-    windows: [{ id: 'north', azimuthDeg: 0, glassAreaM2: 2 }, { id: 'east', azimuthDeg: 70, glassAreaM2: 3.5 },
-        { id: 'south', azimuthDeg: 160, glassAreaM2: 5 }, { id: 'west', azimuthDeg: 250, glassAreaM2: 4 }]
+    windows: [{ id: 'north', azimuthDeg: 0, glassAreaM2: 2 }, { id: 'east', azimuthDeg: 90, glassAreaM2: 3.5 },
+        { id: 'south', azimuthDeg: 180, glassAreaM2: 5 }, { id: 'west', azimuthDeg: 270, glassAreaM2: 4 }]
         .map(w => ({ ...windowDefaults, ...w, name: w.id[0].toUpperCase() + w.id.slice(1), roomId: 'living', positionStateId: `sim.${w.id}.actual`, positionCommandId: `sim.${w.id}.target` })),
 });
 export const scenarios = {
@@ -128,8 +128,9 @@ export function simulate(request: SimulatorRequest): Record<string, unknown> {
         runtime.temperatures[room.id] = temperature;
         updateHeating(room, observation, temperature, r, now);
         models[room.id] = request.forecastFailure || request.sensorFailure ? null : optimizeRoom(room, roomWindows.map(w => ({ config: w,
-            position: runtime.windows[w.id].actualPosition ?? 100, lastMoveAt: runtime.windows[w.id].lastAutoAt,
-            movableAfter: runtime.windows[w.id].enabled && runtime.windows[w.id].participatingToday ? Math.max(now, runtime.windows[w.id].manualHoldUntil) : Infinity,
+            position: positionForForecast(runtime.windows[w.id], runtime.windows[w.id].actualPosition ?? 100, now), lastMoveAt: runtime.windows[w.id].lastAutoAt,
+            maximumPosition: dailyManualPositionLimit(runtime.windows[w.id], c, now) ?? 100, maximumPositionUntil: nextMidnight(now, c.timezone),
+            movableAfter: runtime.global.vacationMode || runtime.windows[w.id].enabled && runtime.windows[w.id].participatingToday ? Math.max(now, runtime.windows[w.id].manualHoldUntil) : Infinity,
         })), grid, temperature, observation, r, c, now);
     }
     const windows = c.windows.map(w => {
@@ -138,18 +139,20 @@ export function simulate(request: SimulatorRequest): Record<string, unknown> {
         const decision = decide({ config: c, global: runtime.global, runtime: r, now, actualPosition: r.actualPosition,
             thermalTarget: result?.targets[w.id] ?? null, forecastValid: !request.forecastFailure, roomValid: !request.sensorFailure && !!result, startupReady: true, dayChanged,
             directSun: hasDirectSun(grid[0], w.azimuthDeg, c, now), minimumThermalPosition: minimumThermalPosition(potentialW, c.minimumSolarPowerPerWindowW) });
+        if (r.manualHoldUntil <= now) r.lastPlannedPosition = decision.calculatedPosition;
         const before = r.actualPosition;
         if (decision.target !== null) {
             beginCommand(r, w, decision.target, decision.reason, now, `sim-${w.id}-${now}`);
             // Virtual motor completes immediately, through the same feedback recognizer as the real adapter.
             observe(r, { kind: 'actual', position: decision.target, ts: now, ack: true, from: 'system.adapter.virtual.0' }, c, now, 'system.adapter.thermalblindcontrol.0');
             completeEvent(r, decision.event, now, c);
-        } else if (decision.reason === 'NO_CHANGE' && decision.event) completeEvent(r, decision.event, now, c);
+        } else if ((decision.reason === 'NO_CHANGE' || decision.reason === 'MANUAL_POSITION_LIMIT') && decision.event) completeEvent(r, decision.event, now, c);
         return { id: w.id, name: w.name, roomId: w.roomId, azimuth: w.azimuthDeg, position: r.actualPosition, previousPosition: before,
             calculatedPosition: decision.calculatedPosition, reason: decision.reason, moved: decision.target !== null,
             gti: grid[0].gti[orientationKey(w.azimuthDeg)], directIrradiance: directIrradiance(grid[0], w.azimuthDeg, c, now), directSun: hasDirectSun(grid[0], w.azimuthDeg, c, now),
             admittedSolarW: potentialW * transmission(w, r.actualPosition ?? 100), daylightPowerW: potentialW * ((r.actualPosition ?? 100) / 100), minimumSolarW: Math.min(potentialW, c.minimumSolarPowerPerWindowW),
-            manualHoldUntil: r.manualHoldUntil, participatingToday: r.participatingToday, enabled: r.enabled, autoMorningOpen: r.autoMorningOpen };
+            manualHoldUntil: r.manualHoldUntil, manualPositionLimit: dailyManualPositionLimit(r, c, now), manualPositionLimitActive: dailyManualPositionLimit(r, c, now) !== null,
+            participatingToday: r.participatingToday, enabled: r.enabled, autoMorningOpen: r.autoMorningOpen };
     });
     return { positionConvention: 'percentOpen', timestamp: now, timezone: c.timezone, sun: solarPosition(now, c), outsideTemperature: grid[0].outsideC,
         forecastValid: !request.forecastFailure, schedule: schedule(now, c), windows,

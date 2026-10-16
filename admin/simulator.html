@@ -27,12 +27,15 @@
         <label>Minimum time between automatic moves (min)<input id="minMovementIntervalMinutes" type="number" min="15" max="1440" step="1" value="15"></label>
         <p class="muted">Per blind. Set 60 for at most one automatic position change per hour. Each thermal position anticipates the full upcoming interval of sunlight and daylight needs.</p>
         <label>Minimum automatic position change (percentage points)<input id="minPositionChange" type="number" min="1" max="100" step="any" value="10"></label>
-        <p class="muted">Ignore smaller automatic changes in either direction. With 10, 89 → 93 is ignored, while 70 → 93 and changes of exactly 10 are allowed. Also applies to daylight corrections and scheduled moves.</p>
+        <p class="muted">Targets plus this threshold above 100 snap to fully open: with 10, 91 becomes 100; 90 stays 90. Manual opening limits still apply. Then ignore smaller automatic changes in either direction: 49 → 53 is ignored, while 30 → 53 and changes of exactly 10 are allowed. Also applies to daylight corrections and scheduled moves.</p>
+        <label class="toggle"><input id="respectManualPositionUntilEndOfDay" type="checkbox"> Remember manual closing until midnight</label>
+        <p class="muted">A manual position below the plan becomes today's maximum opening. Automatic control may close further. A later manual move replaces the limit; manually closing to 0 keeps it closed until tomorrow. The manual pause still applies.</p>
       </fieldset>
       <fieldset><legend>Operating controls</legend>
         <label class="toggle"><input id="enabled" type="checkbox" checked> Automation enabled</label>
         <label class="toggle"><input id="disabledToday" type="checkbox"> Disabled today</label>
-        <label class="toggle"><input id="vacationMode" type="checkbox"> Vacation schedule</label>
+        <label class="toggle"><input id="vacationMode" type="checkbox"> Vacation mode</label>
+        <p class="muted">Morning opening, daytime thermal protection, and evening closing. Ignores per-window enabled and morning-opening flags. Manual holds and movement limits still apply.</p>
         <label class="toggle"><input id="dryRun" type="checkbox"> Dry run (diagnostics only)</label>
         <label>Thermal mode<select id="thermalMode"><option value="active">Active</option><option value="shadow">Shadow</option><option value="off">Off</option></select></label>
         <label class="toggle"><input id="forecastFailure" type="checkbox"> Simulate forecast outage</label>

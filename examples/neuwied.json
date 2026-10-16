@@ -6,6 +6,7 @@
   "longitude": 7.47,
   "timezone": "Europe/Berlin",
   "minimumSolarPowerPerWindowW": 20,
+  "respectManualPositionUntilEndOfDay": false,
   "minMovementIntervalMinutes": 28,
   "rooms": [
     {

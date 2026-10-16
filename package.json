@@ -7,10 +7,10 @@
   "author": "Nils",
   "keywords": ["ioBroker", "blinds", "thermal", "Open-Meteo"],
   "engines": { "node": ">=20" },
-  "files": ["build/", "admin/", "scripts/", "examples/", "io-package.json", "README.md", "LICENSE", "thermische_rollladensteuerung_iobroker_plan.md"],
+  "files": ["build/", "admin/", "scripts/", "examples/", "observability/", "io-package.json", "README.md", "LICENSE", "thermische_rollladensteuerung_iobroker_plan.md"],
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node test/engine.test.cjs && node test/thermal-weather.test.cjs && node test/solar-allocation.test.cjs && node test/adapter.test.cjs",
+    "test": "npm run build && node test/config-admin.test.cjs && node test/engine.test.cjs && node test/thermal-weather.test.cjs && node test/solar-allocation.test.cjs && node test/adapter.test.cjs",
     "simulator": "node scripts/simulator-server.cjs",
     "admin:generate": "npm run build && node scripts/generate-admin.cjs",
     "prepack": "npm run build"

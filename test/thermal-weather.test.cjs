@@ -47,7 +47,7 @@ test('rolling 24h grid handles fractional hours and both DST transitions', () =>
 test('stale/null/overlapping/incomplete forecasts and bad-quality sensors fail closed', () => {
     const valid = syntheticForecast(now, c, 20, 4, 0);
     for (const mutate of [f => f.fetchedAt = now - 181 * MINUTE, f => f.intervals.splice(4, 1), f => f.intervals[4].start = f.intervals[3].start,
-        f => f.intervals[0].gti['160'] = null, f => f.intervals.pop(), f => f.intervals[0].outsideC = NaN, f => f.location.latitude += 1]) {
+        f => f.intervals[0].gti[String(c.windows[0].azimuthDeg)] = null, f => f.intervals.pop(), f => f.intervals[0].outsideC = NaN, f => f.location.latitude += 1]) {
         const f = structuredClone(valid); mutate(f); assert.equal(forecastGrid(f, c, now), null);
     }
     assert.equal(freshNumber({ val: 22, ts: now, q: 1 }, now, 30, -10, 50), null);
@@ -83,6 +83,23 @@ test('winter sunshine is admitted; a hot period tightens tolerance and honestly 
     const model = hot.rooms[0].model; assert(model.climateBudget24h < 0); assert.equal(model.adaptiveTempLimit, 21);
     assert(model.predictedMaxTemp > 21); assert(model.predictedMaxTemp < model.openMaxTemp - 5); assert(model.unavoidableOverheating);
     assert(hot.windows.some(w => w.position < 100)); assert(model.solarAllowed24h < model.solarPotential24h);
+});
+test('vacation simulator shades sunlit windows without morning opt-in or normal enrollment', () => {
+    for (const enabled of [true, false]) {
+        const config = { ...c, vacationMode: true, minimumSolarPowerPerWindowW: 20,
+            windows: c.windows.map(w => ({ ...w, enabled, autoMorningOpen: false })) };
+        const result = simulate({ config, timestamp: now, scenario: 'heatwave' });
+        assert(result.windows.some(w => w.directSun && w.moved && w.position > 0 && w.position < 100));
+        assert(result.windows.filter(w => !w.directSun).every(w => w.position === 100));
+        for (const w of result.windows) {
+            assert.equal(w.participatingToday, false);
+            assert.equal(w.autoMorningOpen, false); assert.equal(w.enabled, enabled);
+            assert.equal(result.rooms[0].model.plan[0].positions[w.id], w.position, 'vacation planning and execution must agree');
+        }
+        const normal = simulate({ config, timestamp: now + MINUTE, scenario: 'heatwave', runtime: result.runtime, controls: { vacationMode: false } });
+        assert(normal.windows.every(w => !w.moved && w.reason === (enabled ? 'WAIT_FIRST_OPEN' : 'WINDOW_DISABLED')));
+        assert(normal.windows.every(w => !w.participatingToday && !w.autoMorningOpen));
+    }
 });
 test('measured hot room receives less solar gain than cold room under the same climatic budget', () => {
     const grid = forecastGrid(syntheticForecast(now, c, 10, 0, 0), c, now);
@@ -122,4 +139,23 @@ test('simulator retains manual holds, supports independent rooms and resets on b
     const multi = structuredClone(c); multi.rooms.push({ ...multi.rooms[0], id: 'bedroom', name: 'Bedroom', temperatureSensorId: 'sim.bedroom.temp' }); multi.windows[0].roomId = 'bedroom';
     const result = simulate({ config: multi, temperatures: { living: 26, bedroom: 18 }, scenario: 'summer' });
     assert.equal(result.rooms.length, 2); assert.notEqual(result.rooms[0].model.predictedMaxTemp, result.rooms[1].model.predictedMaxTemp);
+});
+test('simulator remembers manual closing, replaces it with manual opening, and clears it at midnight', () => {
+    const config = { ...c, respectManualPositionUntilEndOfDay: true };
+    let r = simulate({ config, scenario: 'winter' });
+    r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + MINUTE, runtime: r.runtime, manualChanges: { north: 25 } });
+    assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimit, 25);
+    r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + 61 * MINUTE, runtime: r.runtime });
+    assert.equal(r.windows.find(w => w.id === 'north').position, 25);
+    assert.equal(r.windows.find(w => w.id === 'north').reason, 'MANUAL_POSITION_LIMIT');
+    r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + MINUTE, runtime: r.runtime, manualChanges: { north: 90 } });
+    assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimit, 90);
+    r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + 61 * MINUTE, runtime: r.runtime });
+    assert.equal(r.windows.find(w => w.id === 'north').position, 90);
+    r = simulate({ config, scenario: 'winter', minutes: 23 * 60 + 45 });
+    r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + MINUTE, runtime: r.runtime, manualChanges: { north: 0 } });
+    assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimit, 0);
+    r = simulate({ config, scenario: 'winter', timestamp: r.timestamp + 30 * MINUTE, runtime: r.runtime });
+    assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimit, null);
+    assert.equal(r.windows.find(w => w.id === 'north').manualPositionLimitActive, false);
 });

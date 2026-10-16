@@ -57,6 +57,7 @@
     "minPositionChange": 10,
     "positionTolerance": 3,
     "minimumSolarPowerPerWindowW": 0,
+    "respectManualPositionUntilEndOfDay": false,
     "firstOpenPercent": 90,
     "morningEarliest": "07:00",
     "morningLatest": "10:00",

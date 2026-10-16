@@ -1,10 +1,13 @@
-import { capacities, type Config, type RoomConfig, type WindowConfig } from './config';
+import { automaticPosition, capacities, type Config, type RoomConfig, type WindowConfig } from './config';
 import { clamp, HOUR, MINUTE } from './time';
 import { hasDirectSun, orientationKey, type ForecastInterval } from './weather';
 export interface HeatingObservation { setpointC: number | null; demand: boolean | null; valvePercent: number | null; flowC: number | null; returnC: number | null }
 export interface RoomRuntime { residualPowerW: number; heatingUpdatedAt: number; adaptiveLimit: number | null; limitUpdatedAt: number }
 export const newRoomRuntime = (): RoomRuntime => ({ residualPowerW: 0, heatingUpdatedAt: 0, adaptiveLimit: null, limitUpdatedAt: 0 });
-export interface ModelWindow { config: WindowConfig; position: number; movableAfter: number; lastMoveAt: number }
+export interface ModelWindow {
+    config: WindowConfig; position: number; movableAfter: number; lastMoveAt: number;
+    maximumPosition?: number; maximumPositionUntil?: number;
+}
 export interface PlanStep {
     time: number; temperature: number; outsideC: number; solarW: number; heatingW: number;
     solarPotentialW: number; solarTargetW: number; directSun: Record<string, boolean>; positions: Record<string, number>;
@@ -97,17 +100,18 @@ export function optimizeRoom(room: RoomConfig, windows: ModelWindow[], grid: For
         for (let index = 0; index < intervals.length; index++) {
             const { point, hours, solar, direct } = intervals[index];
             const heat = heatStep(room, heating, current, slab, hours);
+            const maximumPositions = windows.map(w => !allOpen && point.start < (w.maximumPositionUntil ?? Infinity) ? w.maximumPosition ?? 100 : 100);
             const eligible = windows.map((w, i) => point.start >= w.movableAfter && (!lastMoves[i] || point.start - lastMoves[i] >= c.minMovementIntervalMinutes * MINUTE));
-            const nextPositions = positions.map((p, i) => allOpen || (eligible[i] && !direct[i] && 100 - p >= c.minPositionChange) ? 100 : p);
+            const nextPositions = positions.map((p, i) => allOpen ? 100 : eligible[i] && !direct[i] && Math.abs(maximumPositions[i] - p) >= c.minPositionChange ? maximumPositions[i] : p);
             const controllable = windows.map((_, i) => eligible[i] && direct[i]);
             const horizonEnd = point.start + c.minMovementIntervalMinutes * MINUTE;
             const upcoming = intervals.slice(index).filter(p => p.point.start < horizonEnd);
             // A move commits this position for the whole cooldown. Preserve daylight throughout that period.
-            const minimumPositions = solar.map((power, i) => Math.max(minimumThermalPosition(power, c.minimumSolarPowerPerWindowW),
-                ...upcoming.filter(p => p.solar[i] > 0).map(p => minimumThermalPosition(p.solar[i], c.minimumSolarPowerPerWindowW))));
+            const minimumPositions = solar.map((power, i) => Math.min(maximumPositions[i], Math.max(minimumThermalPosition(power, c.minimumSolarPowerPerWindowW),
+                ...upcoming.filter(p => p.solar[i] > 0).map(p => minimumThermalPosition(p.solar[i], c.minimumSolarPowerPerWindowW)))));
             const fixedPower = solar.reduce((sum, p, i) => sum + (controllable[i] ? 0 : p * transmission(windows[i].config, nextPositions[i])), 0);
-            const openPower = fixedPower + solar.reduce((sum, p, i) => sum + (controllable[i] ? p : 0), 0);
-            const removablePower = solar.reduce((sum, p, i) => sum + (controllable[i] ? p * (1 - windows[i].config.closedTransmission) * (100 - minimumPositions[i]) / 100 : 0), 0);
+            const openPower = fixedPower + solar.reduce((sum, p, i) => sum + (controllable[i] ? p * transmission(windows[i].config, maximumPositions[i]) : 0), 0);
+            const removablePower = solar.reduce((sum, p, i) => sum + (controllable[i] ? p * (1 - windows[i].config.closedTransmission) * (maximumPositions[i] - minimumPositions[i]) / 100 : 0), 0);
             const minimumPower = openPower - removablePower;
             let target = powerTarget;
             if (!allOpen && current > limit + 0.01) {
@@ -120,13 +124,14 @@ export function optimizeRoom(room: RoomConfig, windows: ModelWindow[], grid: For
             // Choose the held position for the strongest upcoming exposure, rather than reacting only to this interval.
             // Other windows are conservatively held at their current position until their own eligible move is evaluated.
             for (const future of upcoming) {
-                const futureOpen = future.solar.reduce((sum, p, i) => sum + p * (controllable[i] ? 1 : transmission(windows[i].config, nextPositions[i])), 0);
-                const futureRemovable = future.solar.reduce((sum, p, i) => sum + (controllable[i] ? p * (1 - windows[i].config.closedTransmission) * (100 - minimumPositions[i]) / 100 : 0), 0);
+                const futureOpen = future.solar.reduce((sum, p, i) => sum + p * transmission(windows[i].config, controllable[i] ? maximumPositions[i] : nextPositions[i]), 0);
+                const futureRemovable = future.solar.reduce((sum, p, i) => sum + (controllable[i] ? p * (1 - windows[i].config.closedTransmission) * (maximumPositions[i] - minimumPositions[i]) / 100 : 0), 0);
                 if (futureRemovable > 0) closureFraction = Math.max(closureFraction, clamp((futureOpen - target) / futureRemovable));
             }
             for (let i = 0; i < windows.length; i++) if (!allOpen && controllable[i]) {
                 // One-percent targets preserve useful partial shading rather than jumping to fully closed.
-                const desired = clamp(Math.floor(100 - closureFraction * (100 - minimumPositions[i]) + 1e-7), minimumPositions[i], 100);
+                const planned = clamp(Math.floor(maximumPositions[i] - closureFraction * (maximumPositions[i] - minimumPositions[i]) + 1e-7), minimumPositions[i], maximumPositions[i]);
+                const desired = automaticPosition(planned, c.minPositionChange, maximumPositions[i]);
                 if (Math.abs(desired - positions[i]) >= c.minPositionChange) nextPositions[i] = desired;
             }
             const solarW = solar.reduce((sum, p, i) => sum + p * transmission(windows[i].config, nextPositions[i]), 0);

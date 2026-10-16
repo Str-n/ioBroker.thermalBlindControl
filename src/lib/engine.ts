@@ -1,4 +1,4 @@
-import type { Config, WindowConfig } from './config';
+import { automaticPosition, type Config, type WindowConfig } from './config';
 import { localDate, MINUTE, schedule } from './time';
 export interface OwnCommand {
     id: string; target: number; startPosition: number; issuedAt: number; expiresAt: number;
@@ -9,6 +9,7 @@ export interface WindowRuntime {
     day: string; enabled: boolean; autoMorningOpen: boolean; participatingToday: boolean;
     manualHoldUntil: number; lastManualAt: number; lastAutoAt: number; lastObservedAt: number;
     actualPosition: number | null; observationAnchor: number | null; ownCommand: OwnCommand | null;
+    lastPlannedPosition: number | null; manualPositionLimit: number | null; manualPositionLimitDate: string;
     morningDate: string; vacationMorningDate: string; vacationEveningDate: string;
 }
 export interface GlobalRuntime {
@@ -19,6 +20,7 @@ export const newGlobal = (c: Config, now: number): GlobalRuntime => ({ enabled: 
     disabledDate: c.disabledToday ? localDate(now, c.timezone) : '', day: localDate(now, c.timezone), modeChangedAt: now });
 export const newWindow = (w: WindowConfig, c: Config, now: number): WindowRuntime => ({ positionConvention: 'percentOpen', day: localDate(now, c.timezone), enabled: w.enabled, autoMorningOpen: w.autoMorningOpen,
     participatingToday: false, manualHoldUntil: 0, lastManualAt: 0, lastAutoAt: 0, lastObservedAt: 0, actualPosition: null, observationAnchor: null, ownCommand: null,
+    lastPlannedPosition: null, manualPositionLimit: null, manualPositionLimitDate: '',
     morningDate: '', vacationMorningDate: '', vacationEveningDate: '' });
 export function restoreWindow(raw: unknown, w: WindowConfig, c: Config, now: number): WindowRuntime {
     const result = newWindow(w, c, now);
@@ -32,6 +34,8 @@ export function restoreWindow(raw: unknown, w: WindowConfig, c: Config, now: num
         if (typeof result[key] === 'string' && typeof v === 'string' && (v === '' || /^\d{4}-\d{2}-\d{2}$/.test(v))) (result as any)[key] = v;
     }
     if (typeof value.actualPosition === 'number' && value.actualPosition >= 0 && value.actualPosition <= 100) result.actualPosition = value.actualPosition;
+    for (const key of ['lastPlannedPosition', 'manualPositionLimit'] as const)
+        if (typeof value[key] === 'number' && Number.isFinite(value[key]) && value[key] >= 0 && value[key] <= 100) result[key] = value[key];
     result.observationAnchor = typeof value.observationAnchor === 'number' && value.observationAnchor >= 0 && value.observationAnchor <= 100 ? value.observationAnchor : result.actualPosition;
     const command = value.ownCommand as OwnCommand | undefined;
     if (command && typeof command.id === 'string' && typeof command.reason === 'string' && typeof command.completed === 'boolean' &&
@@ -41,22 +45,44 @@ export function restoreWindow(raw: unknown, w: WindowConfig, c: Config, now: num
         // Earlier versions persisted percent-closed positions without a convention marker.
         if (result.actualPosition !== null) result.actualPosition = 100 - result.actualPosition;
         if (result.observationAnchor !== null) result.observationAnchor = 100 - result.observationAnchor;
+        for (const key of ['lastPlannedPosition', 'manualPositionLimit'] as const) if (result[key] !== null) result[key] = 100 - result[key];
         if (result.ownCommand) {
             for (const key of ['target', 'startPosition', 'lastFeedback'] as const) result.ownCommand[key] = 100 - result.ownCommand[key];
         }
     }
+    if (!c.respectManualPositionUntilEndOfDay) { result.manualPositionLimit = null; result.manualPositionLimitDate = ''; }
     return result;
+}
+function resetWindowDay(runtime: WindowRuntime, day: string): void {
+    if (runtime.day === day) return;
+    runtime.day = day; runtime.participatingToday = false;
+    runtime.manualPositionLimit = null; runtime.manualPositionLimitDate = ''; runtime.lastPlannedPosition = null;
 }
 export function rollover(global: GlobalRuntime, windows: Iterable<WindowRuntime>, now: number, c: Config): boolean {
     const day = localDate(now, c.timezone), changed = global.day !== day;
     global.day = day;
     if (global.disabledToday && global.disabledDate !== day) { global.disabledToday = false; global.disabledDate = ''; }
-    for (const w of windows) if (w.day !== day) { w.day = day; w.participatingToday = false; }
+    for (const w of windows) resetWindowDay(w, day);
     return changed;
 }
-export function manualAction(runtime: WindowRuntime, openness: number | null, now: number, c: Config): void {
+export function dailyManualPositionLimit(runtime: WindowRuntime, c: Config, now: number): number | null {
+    return c.respectManualPositionUntilEndOfDay && runtime.manualPositionLimitDate === localDate(now, c.timezone) ? runtime.manualPositionLimit : null;
+}
+function rememberManualPosition(runtime: WindowRuntime, openness: number, now: number, c: Config, eventTime: number): void {
+    if (!c.respectManualPositionUntilEndOfDay) { runtime.manualPositionLimit = null; runtime.manualPositionLimitDate = ''; return; }
+    const day = localDate(now, c.timezone);
+    // Delayed feedback from yesterday must not establish a new limit today.
+    if (localDate(eventTime, c.timezone) !== day) return;
+    if (dailyManualPositionLimit(runtime, c, now) !== null || openness === 0 ||
+        (runtime.lastPlannedPosition !== null && openness < runtime.lastPlannedPosition)) {
+        runtime.manualPositionLimit = openness; runtime.manualPositionLimitDate = day;
+    }
+}
+export function manualAction(runtime: WindowRuntime, openness: number | null, now: number, c: Config, eventTime = now): void {
+    resetWindowDay(runtime, localDate(now, c.timezone));
     runtime.manualHoldUntil = now + c.manualOverrideMinutes * MINUTE;
     runtime.lastManualAt = now; runtime.ownCommand = null;
+    if (openness !== null) rememberManualPosition(runtime, openness, now, c, eventTime);
     if (openness !== null && openness >= c.firstOpenPercent) runtime.participatingToday = true;
 }
 export interface PositionEvent { kind: 'actual' | 'target' | 'moving'; position?: number | null; moving?: boolean; ts: number; ack?: boolean; from?: string }
@@ -95,8 +121,11 @@ export function observe(runtime: WindowRuntime, event: PositionEvent, c: Config,
     const changed = event.kind === 'target' || !!active || (anchor !== null && Math.abs(position - anchor) > c.positionTolerance) || crossesOpen;
     if (changed) {
         if (event.kind === 'actual') runtime.observationAnchor = position;
-        manualAction(runtime, event.kind === 'actual' ? position : null, now, c); return 'manual';
+        manualAction(runtime, event.kind === 'actual' ? position : null, now, c, event.ts); return 'manual';
     }
+    // A small confirmed change following an explicit manual request still replaces the limit,
+    // without allowing periodic unchanged feedback to extend the timed manual hold.
+    if (event.kind === 'actual' && position !== previous && runtime.manualHoldUntil > now) rememberManualPosition(runtime, position, now, c, event.ts);
     if (event.kind === 'actual' && runtime.observationAnchor === null) runtime.observationAnchor = position;
     // Enrollment requires an observed external opening, not an already-open startup snapshot or a requested target.
     return 'unchanged';
@@ -111,7 +140,8 @@ export function decide(input: DecisionInput): Decision {
     const { config: c, global: g, runtime: r, now, actualPosition: position } = input;
     // Recheck at execution time: a cached thermal target must never close a facade after the sun has left it.
     const minimumPosition = input.minimumThermalPosition ?? 0;
-    const thermalTarget = input.thermalTarget === null ? null : input.directSun ? Math.max(input.thermalTarget, minimumPosition) : 100;
+    const ceiling = dailyManualPositionLimit(r, c, now);
+    const thermalTarget = input.thermalTarget === null ? null : automaticPosition(input.directSun ? Math.max(input.thermalTarget, minimumPosition) : 100, c.minPositionChange, ceiling ?? 100);
     const result = (reason: string, target: number | null = null, event?: Decision['event']): Decision => ({ reason, target, event, calculatedPosition: thermalTarget });
     if (!g.enabled) return result('SYSTEM_DISABLED');
     if (g.disabledToday) return result('DISABLED_TODAY');
@@ -125,26 +155,31 @@ export function decide(input: DecisionInput): Decision {
     let daylightOpening = false;
     if (g.vacationMode) {
         if (due(times.evening) && r.vacationEveningDate !== day) { target = 0; reason = 'VACATION_CLOSE'; event = 'vacationEvening'; }
-        else if (due(times.morning) && r.vacationMorningDate !== day) { target = 100; reason = 'VACATION_OPEN'; event = 'vacationMorning'; }
-        else return result('VACATION_WAIT');
+        else if (due(times.morning) && r.vacationMorningDate !== day) {
+            // Start the day at the heat-aware position, rather than opening fully for a whole cooldown.
+            // The independent schedule still works when the thermal model is unavailable or inactive.
+            target = input.forecastValid && input.roomValid && c.thermalMode === 'active' && thermalTarget !== null ? thermalTarget : 100;
+            reason = 'VACATION_OPEN'; event = 'vacationMorning';
+        }
     } else {
         if (!r.enabled) return result('WINDOW_DISABLED');
         if (!r.autoMorningOpen && !r.participatingToday) return result('WAIT_FIRST_OPEN');
         if (r.autoMorningOpen && r.morningDate !== day && !r.participatingToday && due(times.morning)) { target = 100; reason = 'MORNING_OPEN'; event = 'morning'; }
-        else {
-            if (!r.participatingToday) return result('WAIT_MORNING');
-            if (now < times.morning || now >= times.evening) return result('OUTSIDE_CONTROL_HOURS');
-            if (!input.forecastValid) return result('FORECAST_INVALID');
-            if (!input.roomValid) return result('ROOM_INVALID');
-            if (c.thermalMode === 'off') return result('THERMAL_OFF');
-            if (thermalTarget === null) return result('MODEL_UNAVAILABLE');
-            if (c.thermalMode === 'shadow') return result('SHADOW_MODE');
-            target = thermalTarget;
-            daylightOpening = input.directSun && position < minimumPosition && target > position;
-            reason = daylightOpening ? 'DAYLIGHT_MINIMUM' : !input.directSun ? 'NO_DIRECT_SUN' : target < position ? 'THERMAL_PROTECTION' : 'SOLAR_GAIN';
-        }
     }
-    if (Math.abs(target - position) < c.minPositionChange) return result('NO_CHANGE', null, event);
+    if (target === null) {
+        if (!g.vacationMode && !r.participatingToday) return result('WAIT_MORNING');
+        if (now < times.morning || now >= times.evening) return result(g.vacationMode ? 'VACATION_WAIT' : 'OUTSIDE_CONTROL_HOURS');
+        if (!input.forecastValid) return result('FORECAST_INVALID');
+        if (!input.roomValid) return result('ROOM_INVALID');
+        if (c.thermalMode === 'off') return result('THERMAL_OFF');
+        if (thermalTarget === null) return result('MODEL_UNAVAILABLE');
+        if (c.thermalMode === 'shadow') return result('SHADOW_MODE');
+        target = thermalTarget;
+        daylightOpening = input.directSun && position < minimumPosition && target > position;
+        reason = daylightOpening ? 'DAYLIGHT_MINIMUM' : !input.directSun ? 'NO_DIRECT_SUN' : target < position ? 'THERMAL_PROTECTION' : 'SOLAR_GAIN';
+    }
+    if (ceiling !== null && target >= ceiling) { target = ceiling; reason = 'MANUAL_POSITION_LIMIT'; }
+    if (Math.abs(target - position) < c.minPositionChange) return result(reason === 'MANUAL_POSITION_LIMIT' ? reason : 'NO_CHANGE', null, event);
     if (r.ownCommand && !r.ownCommand.completed && now < r.ownCommand.expiresAt) return result('MOVING');
     if (r.lastAutoAt && now - r.lastAutoAt < c.minMovementIntervalMinutes * MINUTE) return result('MOVEMENT_COOLDOWN');
     if (g.dryRun) return result('DRY_RUN', null);
@@ -160,4 +195,11 @@ export function beginCommand(r: WindowRuntime, w: WindowConfig, target: number, 
     r.ownCommand = { id, target, reason, startPosition: r.actualPosition!, issuedAt: now, expiresAt: now + w.travelSeconds * 1000,
         lastFeedback: r.actualPosition!, completed: false };
     r.lastAutoAt = now;
+}
+export function positionForForecast(r: WindowRuntime, actualPosition: number, now: number): number {
+    const command = r.ownCommand;
+    // Travel takes seconds; forecast steps cover minutes. During recognized travel
+    // model the destination, rather than freezing intermediate feedback for a cooldown.
+    return command && !command.completed && now >= command.issuedAt && now < command.expiresAt && r.manualHoldUntil <= now
+        ? command.target : actualPosition;
 }

@@ -33,7 +33,9 @@ The dashboard retains UID `adrd76w` and its existing folder. It refreshes every 
 
 The Room selector filters room model panels. The Blind selector filters detailed blind panels independently. The overview gauges always show all blinds; physical sensor charts show all rooms.
 
-## Reconfigure after adding rooms or windows
+## Reconfigure after adding rooms, windows or diagnostic states
+
+The daily manual opening ceiling is included in each logged window runtime JSON. After upgrading to an adapter that also publishes `manualPositionLimit` and `manualPositionLimitActive`, rerun the history setup below to include these new scalar states as well.
 
 `configure-history.cjs` discovers the deployed configuration and state objects. Run it inside the ioBroker container. By default it previews changes; `--apply` enables history and verifies every saved object. It changes only `common.custom['influxdb.0']` history metadata.
 

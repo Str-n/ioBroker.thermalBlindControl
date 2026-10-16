@@ -58,23 +58,22 @@
           "label": "Initially in vacation mode",
           "default": false,
           "xs": 12,
-          "sm": 6
+          "sm": 6,
+          "help": "Open in the morning, keep thermal protection active throughout the control day, and close in the evening. Vacation control ignores per-window enabled and morning-opening flags and does not require daily enrollment. Manual holds, daily manual opening limits, global controls and movement limits still apply. Thermal control requires active mode and valid forecast and room data; schedules remain available without them."
         },
         "latitude": {
           "type": "number",
           "label": "Latitude",
           "default": 50.47,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "longitude": {
           "type": "number",
           "label": "Longitude",
           "default": 7.47,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "timezone": {
           "type": "text",
@@ -88,16 +87,14 @@
           "label": "Startup Delay Seconds",
           "default": 30,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "optimizationIntervalMinutes": {
           "type": "number",
           "label": "Optimization Interval Minutes",
           "default": 15,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "minimumSolarPowerPerWindowW": {
           "type": "number",
@@ -105,7 +102,6 @@
           "default": 0,
           "xs": 12,
           "sm": 6,
-          "step": "any",
           "min": 0,
           "max": 10000,
           "help": "Reserve this much estimated unblocked solar power per window, even when the heat budget is exceeded. Limited by available sunlight. Zero disables the daylight minimum."
@@ -116,7 +112,6 @@
           "default": 15,
           "xs": 12,
           "sm": 6,
-          "step": "any",
           "min": 15,
           "max": 1440,
           "help": "Applies to every automatic position change per blind, including morning and vacation schedules. 60 means at most one automatic move per hour. Thermal positions anticipate the full upcoming interval, including changes in solar exposure and daylight. The last-command timestamp survives restarts."
@@ -127,10 +122,17 @@
           "default": 10,
           "xs": 12,
           "sm": 6,
-          "step": "any",
           "min": 1,
           "max": 100,
-          "help": "Ignore automatic changes smaller than this absolute position difference. Default: 10 percentage points. With 10, 89 to 93 is ignored; 70 to 93 and a change of exactly 10 are allowed. Applies in both directions, including daylight corrections and scheduled moves. Manual controls remain available."
+          "help": "Ignore automatic changes smaller than this absolute position difference. Default: 10 percentage points. Before checking the move size, targets whose position plus this threshold exceeds 100 snap to fully open: with 10, 91 becomes 100 and 90 stays 90. A manual opening ceiling still applies. With 10, 49 to 53 is ignored; 30 to 53 and a change of exactly 10 are allowed. Applies in both directions, including daylight corrections and scheduled moves. Manual controls remain available."
+        },
+        "respectManualPositionUntilEndOfDay": {
+          "type": "checkbox",
+          "label": "Keep manual closing as the maximum opening until midnight",
+          "default": false,
+          "xs": 12,
+          "sm": 6,
+          "help": "Optional, off by default. If a confirmed manual position is below the plan, remember it as the maximum opening for this blind until local midnight. Fully closing to 0 always establishes the limit. Automatic control can close further and reopen only up to this level. Any later manual move replaces an existing limit, including opening to 90 or 100. This overrides automatic daylight and scheduled opening; the timed manual pause and movement limits still apply. Survives restarts."
         }
       }
     },
@@ -142,8 +144,10 @@
           "type": "accordion",
           "titleAttr": "name",
           "noDelete": false,
-          "noAdd": false,
           "sm": 12,
+          "onChange": {
+            "calculateFunc": "for (const room of data.rooms || []) { (function normalizeDottedFields(data, property, keys) {\n    let changed = false;\n    for (const key of keys) {\n        const attr = `${property}.${key}`;\n        if (!Object.prototype.hasOwnProperty.call(data, attr))\n            continue;\n        if (!changed)\n            data[property] = { ...data[property] };\n        data[property][key] = data[attr];\n        delete data[attr];\n        changed = true;\n    }\n    return changed;\n})(room, 'heating', [\"type\",\"setpointId\",\"demandId\",\"valvePositionId\",\"nominalPowerW\",\"residualTimeHours\"]); } return data.rooms;"
+          },
           "items": [
             {
               "attr": "id",
@@ -175,8 +179,7 @@
               "label": "Target temperature (°C)",
               "default": 21,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "heatLossWK",
@@ -184,8 +187,7 @@
               "label": "Heat loss coefficient (W/K)",
               "default": 80,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "floorAreaM2",
@@ -193,8 +195,7 @@
               "label": "Floor area (m²)",
               "default": 25,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "construction",
@@ -232,8 +233,7 @@
               "label": "Constant internal gains (W)",
               "default": 0,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "heating.type",
@@ -287,8 +287,7 @@
               "label": "Heuristic nominal heating power (W)",
               "default": 1000,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "heating.residualTimeHours",
@@ -296,8 +295,7 @@
               "label": "Underfloor residual time constant (hours)",
               "default": 3,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             }
           ]
         },
@@ -330,7 +328,6 @@
           "type": "accordion",
           "titleAttr": "name",
           "noDelete": false,
-          "noAdd": false,
           "sm": 12,
           "items": [
             {
@@ -363,8 +360,7 @@
               "label": "Compass azimuth (north 0°, east 90°)",
               "default": 180,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "tiltDeg",
@@ -372,8 +368,7 @@
               "label": "Window tilt (vertical = 90°)",
               "default": 90,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "glassAreaM2",
@@ -381,8 +376,7 @@
               "label": "Glazing area (m²)",
               "default": 3,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "gValue",
@@ -390,8 +384,7 @@
               "label": "Glazing g-value (0–1)",
               "default": 0.5,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "closedTransmission",
@@ -399,8 +392,7 @@
               "label": "Residual heat transmission when closed (0–1)",
               "default": 0.05,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "enabled",
@@ -416,7 +408,8 @@
               "label": "Initially allow morning opening",
               "default": true,
               "xs": 12,
-              "sm": 6
+              "sm": 6,
+              "help": "Normal mode only. If off, wait for a confirmed external opening before starting thermal control for this blind today. Vacation mode ignores this flag and runs its morning schedule and daytime thermal protection."
             },
             {
               "attr": "positionStateId",
@@ -448,8 +441,7 @@
               "label": "Device value when fully OPEN",
               "default": 100,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "deviceClosedValue",
@@ -457,8 +449,7 @@
               "label": "Device value when fully CLOSED",
               "default": 0,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             },
             {
               "attr": "travelSeconds",
@@ -466,8 +457,7 @@
               "label": "Motor feedback recognition timeout (seconds)",
               "default": 120,
               "xs": 12,
-              "sm": 6,
-              "step": "any"
+              "sm": 6
             }
           ]
         }
@@ -496,8 +486,7 @@
           "label": "Morning Offset Minutes",
           "default": 0,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "eveningEarliest": {
           "type": "text",
@@ -518,40 +507,35 @@
           "label": "Evening Offset Minutes",
           "default": 0,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "scheduleCatchUpMinutes": {
           "type": "number",
           "label": "Schedule Catch Up Minutes",
           "default": 60,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "manualOverrideMinutes": {
           "type": "number",
           "label": "Manual Override Minutes",
           "default": 60,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "firstOpenPercent": {
           "type": "number",
           "label": "First Open Percent",
           "default": 90,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "positionTolerance": {
           "type": "number",
           "label": "Position Tolerance",
           "default": 3,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         }
       }
     },
@@ -569,64 +553,56 @@
           "label": "Forecast Refresh Minutes",
           "default": 60,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "forecastMaxAgeMinutes": {
           "type": "number",
           "label": "Forecast Max Age Minutes",
           "default": 180,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "sensorMaxAgeMinutes": {
           "type": "number",
           "label": "Sensor Max Age Minutes",
           "default": 180,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "positionMaxAgeMinutes": {
           "type": "number",
           "label": "Position Max Age Minutes",
           "default": 10080,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "toleranceMaxC": {
           "type": "number",
           "label": "Tolerance Max C",
           "default": 4,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "toleranceStartK": {
           "type": "number",
           "label": "Tolerance Start K",
           "default": 1,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "toleranceFullK": {
           "type": "number",
           "label": "Tolerance Full K",
           "default": 8,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         },
         "limitSmoothingMinutes": {
           "type": "number",
           "label": "Limit Smoothing Minutes",
           "default": 60,
           "xs": 12,
-          "sm": 6,
-          "step": "any"
+          "sm": 6
         }
       }
     }

@@ -1,7 +1,7 @@
 import { Adapter, type AdapterOptions } from '@iobroker/adapter-core';
 import { randomUUID } from 'node:crypto';
-import { parseConfig, normalizePosition, devicePosition, type Config, type RoomConfig } from './lib/config';
-import { beginCommand, completeEvent, decide, newGlobal, newWindow, observe, restoreWindow, rollover, type GlobalRuntime, type WindowRuntime } from './lib/engine';
+import { parseConfig, migrateLegacyHeatingConfig, normalizePosition, devicePosition, type Config, type RoomConfig, type WindowConfig } from './lib/config';
+import { beginCommand, completeEvent, dailyManualPositionLimit, decide, newGlobal, newWindow, observe, positionForForecast, restoreWindow, rollover, type GlobalRuntime, type PositionEvent, type WindowRuntime } from './lib/engine';
 import { minimumThermalPosition, newRoomRuntime, optimizeRoom, updateHeating, type HeatingObservation, type RoomRuntime, type ThermalResult } from './lib/thermal';
 import { directIrradiance, fetchForecast, forecastGrid, freshNumber, hasDirectSun, orientationKey, type Forecast, type Sample } from './lib/weather';
 import { localDate, MINUTE, nextMidnight, schedule } from './lib/time';
@@ -15,11 +15,13 @@ export class ThermalBlindControl extends Adapter {
     private readonly results = new Map<string, ThermalResult>();
     private forecast: Forecast | null = null;
     private lastOptimization = 0;
+    private planValidUntil = Infinity;
     private dirty = true;
     private startedAt = 0;
     private stopped = false;
     private initialized = false;
     private revision = 0;
+    private readonly receivedFeedback = new Map<string, { commandId: string; runtime: WindowRuntime }>();
     private queue: Promise<void> = Promise.resolve();
     private tick?: ReturnType<typeof setInterval>;
     private midnight?: ReturnType<typeof setTimeout>;
@@ -32,7 +34,7 @@ export class ThermalBlindControl extends Adapter {
         this.on('ready', () => this.enqueue(() => this.ready()));
         this.on('stateChange', (id, state) => {
             if (id.startsWith(`${this.namespace}.`) && state?.ack) return;
-            this.revision++;
+            if (!this.expectedMotorFeedback(id, state)) this.revision++;
             this.enqueue(() => this.stateChanged(id, state));
         });
         this.on('unload', callback => {
@@ -43,6 +45,32 @@ export class ThermalBlindControl extends Adapter {
     }
     private enqueue(task: () => Promise<void>): void {
         this.queue = this.queue.then(async () => { if (!this.stopped) await task(); }).catch(error => this.log.error(String(error)));
+    }
+    private motorEvent(w: WindowConfig, id: string, state: ioBroker.State): PositionEvent | null {
+        const kind = id === w.positionStateId ? id === w.positionCommandId && state.ack === false ? 'target' : 'actual'
+            : id === w.positionCommandId ? 'target' : id === w.movementStateId ? 'moving' : null;
+        return kind ? { kind, position: normalizePosition(state.val, w), moving: state.val === true || state.val === 1,
+            ts: state.ts, from: state.from, ack: state.ack } : null;
+    }
+    private expectedMotorFeedback(id: string, state: ioBroker.State | null | undefined): boolean {
+        if (!this.initialized || !state || state.q) return false;
+        const w = this.settings.windows.find(w => id === w.positionStateId || id === w.positionCommandId || id === w.movementStateId);
+        if (!w) return false;
+        const r = this.windows.get(w.id)!, command = r.ownCommand, now = Date.now();
+        if (!command || now < command.issuedAt || now > command.expiresAt) { this.receivedFeedback.delete(w.id); return false; }
+        const event = this.motorEvent(w, id, state)!;
+        let received = this.receivedFeedback.get(w.id);
+        if (!received || received.commandId !== command.id) {
+            received = { commandId: command.id, runtime: structuredClone(r) };
+            this.receivedFeedback.set(w.id, received);
+        }
+        // Classify synchronously so expected feedback cannot cancel sibling writes.
+        // Track bursts in receive order: a reversal must still invalidate the plan
+        // even while queued state processing is waiting for a database write.
+        const active = received.runtime.ownCommand && event.ts >= command.issuedAt - 1000 &&
+            event.ts >= received.runtime.lastObservedAt && event.ts <= now + MINUTE;
+        const status = observe(received.runtime, event, this.settings, now, `system.adapter.${this.namespace}`);
+        return status === 'own' || !!active && status === 'unchanged' && event.kind === 'moving' && (state.val === false || state.val === 0);
     }
     private async channel(id: string, name: string): Promise<void> {
         await this.setObjectNotExistsAsync(id, { type: 'channel', common: { name }, native: {} });
@@ -65,8 +93,23 @@ export class ThermalBlindControl extends Adapter {
     }
     private async saveWindow(id: string): Promise<void> { await this.setStateAsync(`windows.${id}.runtime`, JSON.stringify(this.windows.get(id)), true); }
     private async ready(): Promise<void> {
-        try { this.settings = parseConfig(this.config); }
+        let native: Record<string, any>;
+        try { native = migrateLegacyHeatingConfig(this.config); this.settings = parseConfig(native); }
         catch (error) { this.log.error(`Invalid configuration; control remains inactive: ${error}`); return; }
+        if (native !== this.config) {
+            try {
+                const id = `system.adapter.${this.namespace}`, instance = await this.getForeignObjectAsync(id);
+                if (!instance || instance.type !== 'instance') throw new Error('Adapter instance object unavailable');
+                // Re-read before migrating so unrelated recent Admin changes are preserved.
+                const migrated = migrateLegacyHeatingConfig(instance.native);
+                this.settings = parseConfig(migrated);
+                if (migrated !== instance.native) {
+                    await this.setForeignObjectAsync(id, { ...instance, native: migrated });
+                    this.log.info('Migrated dotted heating settings to nested objects; saved GUI edits take precedence.');
+                }
+            } catch (error) { this.log.error(`Cannot migrate heating settings; control remains inactive: ${error}`); return; }
+            if (this.stopped) return;
+        }
         const c = this.settings, now = Date.now(); this.startedAt = now;
         for (const id of ['global', 'info', 'rooms', 'windows']) await this.channel(id, id);
         await this.object('global.runtime', '{}');
@@ -117,7 +160,14 @@ export class ThermalBlindControl extends Adapter {
             this.windows.set(w.id, r);
             await this.object(`${base}.directSun`, false);
             await this.object(`${base}.directIrradiance`, null, false, 'W/m²');
-            for (const [key, value] of Object.entries({ participatingToday: false, manualOverrideActive: false, manualHoldUntil: 0, calculatedPosition: null, actualPosition: null, controlReason: 'STARTUP', lastOwnCommand: '', commandError: '' })) await this.object(`${base}.${key}`, value, false, key.endsWith('Position') ? '%' : undefined);
+            for (const [key, value] of Object.entries({ participatingToday: false, manualOverrideActive: false, manualHoldUntil: 0, manualPositionLimit: null, manualPositionLimitActive: false, calculatedPosition: null, actualPosition: null, controlReason: 'STARTUP', lastOwnCommand: '', commandError: '' })) await this.object(`${base}.${key}`, value, false, key.endsWith('Position') || key === 'manualPositionLimit' ? '%' : undefined);
+            if (r.lastPlannedPosition === null && r.day === localDate(now, c.timezone)) {
+                const previousPlan = await this.getStateAsync(`${base}.calculatedPosition`);
+                if (previousPlan && localDate(previousPlan.ts, c.timezone) === r.day) {
+                    const value = freshNumber(previousPlan, now, c.forecastMaxAgeMinutes, 0, 100);
+                    r.lastPlannedPosition = value !== null && stored && stored.positionConvention !== 'percentOpen' ? 100 - value : value;
+                }
+            }
         }
         rollover(this.controls, this.windows.values(), now, c);
         await this.saveGlobal();
@@ -200,13 +250,10 @@ export class ThermalBlindControl extends Adapter {
             if (state && !sharedTarget) this.inputs.set(id, state); else if (!state) this.inputs.delete(id);
             if (state && !state.q) for (const w of c.windows) {
                 const r = this.windows.get(w.id)!;
-                let kind: 'actual' | 'target' | 'moving' | null = null;
-                if (id === w.positionStateId) kind = id === w.positionCommandId && state.ack === false ? 'target' : 'actual';
-                else if (id === w.positionCommandId) kind = 'target';
-                else if (id === w.movementStateId) kind = 'moving';
-                if (!kind) continue;
-                const status = observe(r, { kind, position: normalizePosition(state.val, w), moving: state.val === true || state.val === 1, ts: state.ts, from: state.from, ack: state.ack }, c, now, `system.adapter.${this.namespace}`);
-                if (status === 'manual') this.log.info(`${w.id}: foreign ${kind} event; manual hold until ${new Date(r.manualHoldUntil).toISOString()}`);
+                const event = this.motorEvent(w, id, state);
+                if (!event) continue;
+                const status = observe(r, event, c, now, `system.adapter.${this.namespace}`);
+                if (status === 'manual') this.log.info(`${w.id}: foreign ${event.kind} event; manual hold until ${new Date(r.manualHoldUntil).toISOString()}`);
                 await this.saveWindow(w.id);
             }
         }
@@ -237,8 +284,9 @@ export class ThermalBlindControl extends Adapter {
         const grid = forecastGrid(this.forecast, c, now);
         const startupReady = now - this.startedAt >= c.startupDelaySeconds * 1000;
         if (!grid) this.results.clear();
-        if (grid && (this.dirty || now - this.lastOptimization >= c.optimizationIntervalMinutes * MINUTE)) {
+        if (grid && (this.dirty || now >= this.planValidUntil || now - this.lastOptimization >= c.optimizationIntervalMinutes * MINUTE)) {
             this.results.clear();
+            let planValidUntil = Infinity;
             for (const room of c.rooms) {
                 const temperature = this.roomTemperature(room, now);
                 const windows = c.windows.filter(w => w.roomId === room.id);
@@ -248,14 +296,17 @@ export class ThermalBlindControl extends Adapter {
                 updateHeating(room, heating, temperature, runtime, now);
                 const models = windows.map(w => {
                     const r = this.windows.get(w.id)!;
-                    return { config: w, position: this.position(w.id, now)!, lastMoveAt: r.lastAutoAt,
-                        movableAfter: r.enabled && r.participatingToday ? Math.max(now, r.manualHoldUntil) : Infinity };
+                    const actual = this.position(w.id, now)!, position = positionForForecast(r, actual, now);
+                    if (position !== actual) planValidUntil = Math.min(planValidUntil, r.ownCommand!.expiresAt);
+                    return { config: w, position, lastMoveAt: r.lastAutoAt,
+                        maximumPosition: dailyManualPositionLimit(r, c, now) ?? 100, maximumPositionUntil: nextMidnight(now, c.timezone),
+                        movableAfter: this.controls.vacationMode || r.enabled && r.participatingToday ? Math.max(now, r.manualHoldUntil) : Infinity };
                 });
                 const result = optimizeRoom(room, models, grid, temperature, heating, runtime, c, now);
                 this.results.set(room.id, result);
                 await this.setStateAsync(`rooms.${room.id}.runtime`, JSON.stringify(runtime), true);
             }
-            this.dirty = false; this.lastOptimization = now;
+            this.dirty = false; this.lastOptimization = now; this.planValidUntil = planValidUntil;
         }
         const times = schedule(now, c);
         const mode = !this.controls.enabled ? 'DISABLED' : this.controls.disabledToday ? 'DISABLED_TODAY' : this.controls.vacationMode ? 'VACATION' : !grid ? 'FORECAST_INVALID' : this.controls.dryRun ? 'DRY_RUN' : c.thermalMode.toUpperCase();
@@ -281,6 +332,9 @@ export class ThermalBlindControl extends Adapter {
                 forecastValid: !!grid, roomValid: !!result, startupReady, dayChanged, directSun: !!grid && hasDirectSun(grid[0], w.azimuthDeg, c, now),
                 minimumThermalPosition: grid ? minimumThermalPosition(grid[0].gti[orientationKey(w.azimuthDeg)] * w.glassAreaM2 * w.gValue, c.minimumSolarPowerPerWindowW) : 0 };
             let decision = decide(input);
+            // Keep the pre-manual plan while feedback is arriving: a held/intermediate
+            // position is not a new automatic plan against which to classify the same move.
+            if (r.manualHoldUntil <= now) r.lastPlannedPosition = decision.calculatedPosition;
             await this.publish(`${base}.actualPosition`, position); await this.publish(`${base}.calculatedPosition`, decision.calculatedPosition);
             await this.publish(`${base}.directSun`, input.directSun);
             await this.publish(`${base}.directIrradiance`, grid ? directIrradiance(grid[0], w.azimuthDeg, c, now) : null);
@@ -308,7 +362,7 @@ export class ThermalBlindControl extends Adapter {
                         }
                     }
                 }
-            } else if (decision.event && decision.reason === 'NO_CHANGE' && revision === this.revision) {
+            } else if (decision.event && (decision.reason === 'NO_CHANGE' || decision.reason === 'MANUAL_POSITION_LIMIT') && revision === this.revision) {
                 completeEvent(r, decision.event, now, c); this.dirty = true;
             }
             await this.saveWindow(w.id);
@@ -316,6 +370,9 @@ export class ThermalBlindControl extends Adapter {
             await this.publish(`${base}.participatingToday`, r.participatingToday);
             await this.publish(`${base}.manualOverrideActive`, r.manualHoldUntil > now);
             await this.publish(`${base}.manualHoldUntil`, r.manualHoldUntil);
+            const manualLimit = dailyManualPositionLimit(r, c, now);
+            await this.publish(`${base}.manualPositionLimit`, manualLimit);
+            await this.publish(`${base}.manualPositionLimitActive`, manualLimit !== null);
             await this.publish(`${base}.controlReason`, decision.reason);
         }
     }
